@@ -1,1 +1,1 @@
-- This is the implementation of the paper 'Band-limited Angular Spectrum Method for Numerical Simulation of Free-Space Propogation in Far and Near Fields'
+- This is the reproduction of the paper 'Band-limited Angular Spectrum Method for Numerical Simulation of Free-Space Propogation in Far and Near Fields'
