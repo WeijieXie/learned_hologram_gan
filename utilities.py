@@ -35,8 +35,7 @@ def amplitude_tensor_generator_for_phase_only_hologram(image_path):
     image = Image.open(image_path)
     width = image.size[0]
     height = image.size[1]
-    # amplitude_tensor = torch.ones([3, height, width])
-    amplitude_tensor = torch.ones([*image.size])
+    amplitude_tensor = torch.ones([3, height, width])
     return amplitude_tensor
 
 
@@ -99,20 +98,22 @@ def cut_padding(tensorX):
     return tensorX
 
 
-# def intensity_normalizor(intensity):
-#     """
-#     Normalize the 2-D intensity tensor to 0-255
+def rgb_normalizor(intensity):
+    """
+    Normalize the 2-D intensity tensor to 0-255
 
-#     Args:
-#     intensity: 2-D tensor, the intensity tensor
+    Args:
+    intensity: 2-D tensor, the intensity tensor
 
-#     Returns:
-#     intensity_normalized: 2-D tensor, the normalized intensity tensor
-#     """
-#     intensity_normalized = (
-#         255 * (intensity - intensity.min()) / (intensity.max() - intensity.min())
-#     )
-#     return intensity_normalized
+    Returns:
+    intensity_normalized: 2-D tensor, the normalized intensity tensor
+    """
+    max, _ = torch.max(intensity, dim=-1, keepdim=True)
+    max, _ = torch.max(max, dim=-2, keepdim=True)
+    min, _ = torch.min(intensity, dim=-1, keepdim=True)
+    min, _ = torch.min(min, dim=-2, keepdim=True)
+    intensity_normalized = (intensity - min) / (max - min)
+    return intensity_normalized
 
 
 def amplitude_calculator(complex_tensor):
@@ -143,13 +144,13 @@ def phase_calculator(complex_tensor):
     return phase
 
 
-def intensity_calculator(complex_tensor, intensity_norm=False):
+def intensity_calculator(complex_tensor, intensity_norm=True):
     """
     Calculate the intensity from the complex tensor
     """
     intensity = complex_tensor.abs() ** 2
-    # if intensity_norm:
-    #     intensity = intensity_normalizor(intensity)
+    if intensity_norm:
+        intensity = rgb_normalizor(intensity)
     return intensity
 
 
@@ -206,7 +207,7 @@ def diffraction_plotter(
             fig, axs = plt.subplots(1, 4, figsize=(20, 10))
             axs[3].imshow(diffraction_tensor.permute(1, 2, 0))
             axs[3].axis("off")
-            axs[3].set_title("The diffraction pattern at z = {} mm".format(distance))
+            axs[3].set_title("The diffraction pattern at z = {} mm".format(round(distance.item(), 3)))
         else:
             fig, axs = plt.subplots(1, 3, figsize=(20, 10))
 
@@ -218,8 +219,19 @@ def diffraction_plotter(
             rgb_tensor = rgb_tensor.permute(1, 2, 0)
             axs[i].imshow(rgb_tensor)
             axs[i].axis("off")
-            axs[i].set_title("The diffraction pattern at z = {} mm".format(distance))
+            # keep 3 decimal places
+            axs[i].set_title("The diffraction pattern at z = {}. mm".format(round(distance.item(), 3)))
         plt.show()
+
+
+def multi_depth_diffraction_plotter(
+    diffraction_tensor,
+    distances,
+    rgb_img=False,
+    color=0,  # r = 0, g = 1, b = 2
+):
+    for i in range(diffraction_tensor.shape[-4]):
+        diffraction_plotter(diffraction_tensor[i], distances[i], rgb_img, color)
 
 
 def num_gpus():
