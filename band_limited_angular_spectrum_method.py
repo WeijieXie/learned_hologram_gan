@@ -1,8 +1,4 @@
-import math
-import numpy as np
 import torch
-import matplotlib.pyplot as plt
-
 import utilities
 
 
@@ -40,8 +36,10 @@ class bandLimitedAngularSpectrumMethod:
             raise ValueError("Amplitude tensor or phase tensor is required")
         if self.amplitudeTensor.shape != self.phaseTensor.shape:
             raise ValueError("Amplitude and phase tensors must have the same shape")
-        
-        self.sourcePlain = utilities.complex_plain(self.amplitudeTensor, self.phaseTensor)
+
+        self.sourcePlain = utilities.complex_plain(
+            self.amplitudeTensor, self.phaseTensor
+        )
 
         self.distances = distances
         self.pixel_pitch = pixel_pitch
@@ -58,12 +56,12 @@ class bandLimitedAngularSpectrumMethod:
         self.device = device
 
     def frequencyMesh(self):
-        '''
+        """
         Generate the 3-D mesh for the spatial frequency in the z-direction(w)
 
         Returns:
         w_mesh: 3-D tensor, the mesh for the spatial frequency in the z-direction(w)
-        '''
+        """
         self.freq_x = torch.fft.fftfreq(self.samplingRowNum, self.pixel_pitch)
         self.freq_y = torch.fft.fftfreq(self.samplingColNum, self.pixel_pitch)
 
@@ -110,8 +108,14 @@ class bandLimitedAngularSpectrumMethod:
         # wave_length = self.wave_length.unsqueeze(0)
         # distances = self.distances.unsqueeze(1)
 
-        u_limit = 1 / (torch.sqrt((2 * d_u * (self.distances.unsqueeze(1))) ** 2 + 1) * (self.wave_length.unsqueeze(0)))
-        v_limit = 1 / (torch.sqrt((2 * d_v * (self.distances.unsqueeze(1))) ** 2 + 1) * (self.wave_length.unsqueeze(0)))
+        u_limit = 1 / (
+            torch.sqrt((2 * d_u * (self.distances.unsqueeze(1))) ** 2 + 1)
+            * (self.wave_length.unsqueeze(0))
+        )
+        v_limit = 1 / (
+            torch.sqrt((2 * d_v * (self.distances.unsqueeze(1))) ** 2 + 1)
+            * (self.wave_length.unsqueeze(0))
+        )
 
         mask_u = torch.abs(self.freq_x).unsqueeze(0).unsqueeze(1).unsqueeze(
             3
@@ -138,8 +142,10 @@ class bandLimitedAngularSpectrumMethod:
         w = self.frequencyMesh()
 
         # transfer function
-        H_FR = torch.exp(2j * math.pi * self.distances.unsqueeze(1).unsqueeze(2).unsqueeze(3) * w)
-        # H_FR = torch.exp(1j * math.pi * z * (2/wave_length.unsqueeze(1).unsqueeze(2)-wave_length.unsqueeze(1).unsqueeze(2)*freq_cube))
+        H_FR = torch.exp(
+            2j * torch.pi * self.distances.unsqueeze(1).unsqueeze(2).unsqueeze(3) * w
+        )
+        # H_FR = torch.exp(1j * torch.pi * z * (2/wave_length.unsqueeze(1).unsqueeze(2)-wave_length.unsqueeze(1).unsqueeze(2)*freq_cube))
 
         if band_limit:
             mask = self.band_limited_mask()
