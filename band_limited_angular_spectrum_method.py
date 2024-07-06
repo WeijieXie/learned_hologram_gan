@@ -3,6 +3,24 @@ import utilities
 
 
 class bandLimitedAngularSpectrumMethod:
+    """
+    The band-limited angular spectrum method is a method to simulate the propagation of light in the holography system.
+
+    Parameters:
+    amplitudeTensor: tensor, the amplitude of the light field, whose dimension is (depths, rgb-channels, height, width)
+    phaseTensor: tensor, the phase of the light field, whose dimension is (depths, rgb-channels, height, width)
+    distances: tensor, the distances between the hologram and the sampling plain, whose dimension is (depths)
+    pixel_pitch: float, the pixel pitch of the hologram, whose unit is meter
+    wave_length: tensor, the wave length of the light, whose dimension is (rgb-channels)
+    band_limit: bool, whether to perform the band limitation
+    padding: bool, whether to doube the sampling plain
+    debug: bool, whether to print the debug information
+    device: str, the device to run the code, whose value is "cpu" or "cuda"
+
+    Returns:
+    bandLimitedAngularSpectrumMethod: object, the band-limited angular spectrum method object
+    """
+
     def __init__(
         self,
         amplitudeTensor=None,
@@ -10,30 +28,31 @@ class bandLimitedAngularSpectrumMethod:
         distances=torch.Tensor([0.0]),
         pixel_pitch=3.74e-6,
         wave_length=torch.tensor([639e-9, 515e-9, 473e-9]),
+        band_limit=True,
         padding=False,
         debug=False,
-        device="cpu",
+        device="cuda",
     ):
-        if amplitudeTensor is None:
-            self.amplitudeTensor = (
-                utilities.amplitude_tensor_generator_for_phase_only_hologram(
-                    ".\data\images\sample_hologram.png"
-                )
-            )
-        else:
-            self.amplitudeTensor = amplitudeTensor
+        if device == "cuda":
+            device = utilities.try_gpu()
+        self.device = device
 
         if phaseTensor is None:
             self.phaseTensor = utilities.phase_tensor_generator(
                 ".\data\images\sample_hologram.png"
+            ).to(self.device)
+        else:
+            self.phaseTensor = phaseTensor.to(self.device)
+
+        if amplitudeTensor is None:
+            self.amplitudeTensor = (
+                utilities.amplitude_tensor_generator_for_phase_only_hologram(
+                    self.phaseTensor
+                ).to(self.device)
             )
         else:
-            self.phaseTensor = phaseTensor
+            self.amplitudeTensor = amplitudeTensor.to(self.device)
 
-        if not isinstance(self.amplitudeTensor, torch.Tensor) or not isinstance(
-            self.phaseTensor, torch.Tensor
-        ):
-            raise ValueError("Amplitude tensor or phase tensor is required")
         if self.amplitudeTensor.shape != self.phaseTensor.shape:
             raise ValueError("Amplitude and phase tensors must have the same shape")
 
@@ -48,19 +67,22 @@ class bandLimitedAngularSpectrumMethod:
         self.samplingRowNum = self.amplitudeTensor.shape[-2]
         self.samplingColNum = self.amplitudeTensor.shape[-1]
 
+        self.band_limit = band_limit
         self.padding = padding
         self.debug = debug
 
-        if device == "cuda":
-            device = utilities.try_gpu()
-        self.device = device
+        self.w_mesh = self.frequencyMesh()
+        self.bandLimitedMask = self.band_limited_mask().to(self.device)
 
     def frequencyMesh(self):
         """
-        Generate the 3-D mesh for the spatial frequency in the z-direction(w)
+        The frequency mesh is a tensor that contains the frequency of the light field.
+
+        Parameters:
+        None
 
         Returns:
-        w_mesh: 3-D tensor, the mesh for the spatial frequency in the z-direction(w)
+        w_mesh: 3-D tensor, the frequency mesh of the light field, whose dimension is (rgb-channels, height, width)
         """
         self.freq_x = torch.fft.fftfreq(self.samplingRowNum, self.pixel_pitch)
         self.freq_y = torch.fft.fftfreq(self.samplingColNum, self.pixel_pitch)
@@ -94,68 +116,82 @@ class bandLimitedAngularSpectrumMethod:
         return w_mesh
 
     def band_limited_mask(self):
+        """
+        The band limited mask is used for cutting off the high frequency of the light field to perform the band limitation.
 
-        S_height = (
-            self.samplingRowNum * self.pixel_pitch
-        )  # the height of the sampling plain
-        S_width = (
-            self.samplingColNum * self.pixel_pitch
-        )  # the width of the sampling plain
+        Parameters:
+        None
 
-        d_u = 1 / S_height
-        d_v = 1 / S_width
+        Returns:
+        mask: 4-D tensor, the mask of the light field, whose dimension is (depths, rgb-channels, height, width)
+        """
 
-        # wave_length = self.wave_length.unsqueeze(0)
-        # distances = self.distances.unsqueeze(1)
+        if self.band_limit:
+            S_height = (
+                self.samplingRowNum * self.pixel_pitch
+            )  # the height of the sampling plain
+            S_width = (
+                self.samplingColNum * self.pixel_pitch
+            )  # the width of the sampling plain
 
-        u_limit = 1 / (
-            torch.sqrt((2 * d_u * (self.distances.unsqueeze(1))) ** 2 + 1)
-            * (self.wave_length.unsqueeze(0))
-        )
-        v_limit = 1 / (
-            torch.sqrt((2 * d_v * (self.distances.unsqueeze(1))) ** 2 + 1)
-            * (self.wave_length.unsqueeze(0))
-        )
+            d_u = 1 / S_height
+            d_v = 1 / S_width
 
-        mask_u = torch.abs(self.freq_x).unsqueeze(0).unsqueeze(1).unsqueeze(
-            3
-        ) < u_limit.unsqueeze(2).unsqueeze(3)
-        mask_v = torch.abs(self.freq_y).unsqueeze(0).unsqueeze(1).unsqueeze(
-            2
-        ) < v_limit.unsqueeze(2).unsqueeze(3)
-
-        mask = mask_u & mask_v
-
-        if self.debug:
-            print(
-                "The maximum frequency is clipped to u = {} and v = {}.".format(
-                    u_limit, v_limit
-                )
+            u_limit = 1 / (
+                torch.sqrt((2 * d_u * (self.distances.unsqueeze(1))) ** 2 + 1)
+                * (self.wave_length.unsqueeze(0))
             )
+            v_limit = 1 / (
+                torch.sqrt((2 * d_v * (self.distances.unsqueeze(1))) ** 2 + 1)
+                * (self.wave_length.unsqueeze(0))
+            )
+
+            # u_limit = 0.1 * u_limit
+            # v_limit = 0.1 * v_limit
+
+            mask_u = torch.abs(self.freq_x).unsqueeze(0).unsqueeze(1).unsqueeze(
+                3
+            ) < u_limit.unsqueeze(2).unsqueeze(3)
+            mask_v = torch.abs(self.freq_y).unsqueeze(0).unsqueeze(1).unsqueeze(
+                2
+            ) < v_limit.unsqueeze(2).unsqueeze(3)
+
+            mask = mask_u & mask_v
+
+            if self.debug:
+                print(
+                    "The maximum frequency is clipped to u = {} and v = {}.".format(
+                        u_limit, v_limit
+                    )
+                )
+        else:
+            mask = torch.Tensor([1.0])
 
         return mask
 
     def band_limited_angular_spectrum_multichannels(
         self,
-        band_limit=True,
     ):
-        w = self.frequencyMesh()
+        """
+        The band limited angular spectrum method is a method to simulate the propagation of light in the holography system.
+
+        Returns:
+        g_z_complex: 4-D tensor, the complex amplitude of the light field, whose dimension is (depths, rgb-channels, height, width)
+        """
 
         # transfer function
         H_FR = torch.exp(
-            2j * torch.pi * self.distances.unsqueeze(1).unsqueeze(2).unsqueeze(3) * w
-        )
+            2j
+            * torch.pi
+            * self.distances.unsqueeze(1).unsqueeze(2).unsqueeze(3)
+            * self.w_mesh
+        ).to(self.device)
+
+        # Fresnel's approximation
         # H_FR = torch.exp(1j * torch.pi * z * (2/wave_length.unsqueeze(1).unsqueeze(2)-wave_length.unsqueeze(1).unsqueeze(2)*freq_cube))
 
-        if band_limit:
-            mask = self.band_limited_mask()
-            print(mask.shape)
-            H_FR = H_FR * mask
-
-        G_0 = torch.fft.fft2(self.sourcePlain)
-        G_z = G_0 * H_FR
-
-        # inverse fourier transform
+        G_0 = torch.fft.fft2(self.sourcePlain).to(self.device)
+        G_z = G_0 * H_FR * self.bandLimitedMask
         g_z_complex = torch.fft.ifft2(G_z)
 
         return g_z_complex

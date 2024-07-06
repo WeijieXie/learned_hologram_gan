@@ -22,7 +22,7 @@ def complex_plain(amplitude_tensor, phase_tensor):
     return complex_tensor
 
 
-def amplitude_tensor_generator_for_phase_only_hologram(image_path):
+def amplitude_tensor_generator_for_phase_only_hologram(image_path_or_tensor):
     """
     Generate the uniform amplitude tensor the same size as the phase tensor  with all values are 1.0
 
@@ -32,14 +32,20 @@ def amplitude_tensor_generator_for_phase_only_hologram(image_path):
     Returns:
     amplitude_tensor: 2-D tensor, the amplitude tensor
     """
-    image = Image.open(image_path)
-    width = image.size[0]
-    height = image.size[1]
-    amplitude_tensor = torch.ones([3, height, width])
-    return amplitude_tensor
 
+    if isinstance(image_path_or_tensor, str):
+        image = Image.open(image_path_or_tensor)
+        width = image.size[0]
+        height = image.size[1]
+        amplitude_tensor = torch.ones([3, height, width])
+        return amplitude_tensor
+    elif isinstance(image_path_or_tensor, torch.Tensor):
+        amplitude_tensor = torch.ones_like(image_path_or_tensor)
+        return amplitude_tensor
+    else:
+        raise ValueError("The input should be a string or a tensor.")
 
-def phase_tensor_generator(image_path):
+def phase_tensor_generator(image_path_or_tensor):
     """
     Generate the phase tensor from the image with values normalized to 0-2*pi
 
@@ -49,11 +55,17 @@ def phase_tensor_generator(image_path):
     Returns:
     phase_tensor: 2-D tensor, the phase tensor
     """
-    image = Image.open(image_path)  # convert the image to gray scale
-    transform = transforms.ToTensor()
-    image_tensor = transform(image)  # convert the image to tensor
-    image_tensor_normalized = image_tensor * 2 * math.pi
-    return image_tensor_normalized
+    if isinstance(image_path_or_tensor, str):
+        image = Image.open(image_path_or_tensor)  # convert the image to gray scale
+        transform = transforms.ToTensor()
+        image_tensor = transform(image)  # convert the image to tensor
+        image_tensor_normalized = image_tensor * 2 * math.pi
+        return image_tensor_normalized
+    elif isinstance(image_path_or_tensor, torch.Tensor):
+        # image_tensor_normalized = image_path_or_tensor * 2 * math.pi
+        return image_path_or_tensor
+    else:
+        raise ValueError("The input should be a string or a tensor.")
 
 
 def zero_padding(tensorX):
@@ -172,7 +184,7 @@ def diffraction_plotter(
     Returns:
     None
     """
-    diffraction_tensor = diffraction_tensor.squeeze()
+    diffraction_tensor = diffraction_tensor.squeeze().to("cpu")
 
     if diffraction_tensor.dim() >= 4 or diffraction_tensor.dim() <= 1:
         raise ValueError(
@@ -204,12 +216,12 @@ def diffraction_plotter(
             )
 
         if rgb_img:
-            fig, axs = plt.subplots(1, 4, figsize=(20, 10))
+            fig, axs = plt.subplots(1, 4, figsize=(30, 15))
             axs[3].imshow(diffraction_tensor.permute(1, 2, 0))
             axs[3].axis("off")
             axs[3].set_title("The diffraction pattern at z = {} mm".format(round(distance.item(), 3)))
         else:
-            fig, axs = plt.subplots(1, 3, figsize=(20, 10))
+            fig, axs = plt.subplots(1, 3, figsize=(30, 15))
 
         for i in range(3):
             rgb_tensor = torch.zeros(
@@ -230,6 +242,7 @@ def multi_depth_diffraction_plotter(
     rgb_img=False,
     color=0,  # r = 0, g = 1, b = 2
 ):
+    diffraction_tensor.to("cpu")
     for i in range(diffraction_tensor.shape[-4]):
         diffraction_plotter(diffraction_tensor[i], distances[i], rgb_img, color)
 
