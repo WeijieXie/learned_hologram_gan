@@ -168,7 +168,7 @@ def intensity_calculator(complex_tensor, intensity_norm=True):
     return intensity
 
 
-def diffraction_plotter(
+def multi_channel_plotter(
     diffraction_tensor,
     distance,
     rgb_img=False,
@@ -238,7 +238,7 @@ def diffraction_plotter(
         plt.show()
 
 
-def multi_depth_diffraction_plotter(
+def multi_depth_plotter(
     diffraction_tensor,
     distances,
     rgb_img=False,
@@ -246,7 +246,7 @@ def multi_depth_diffraction_plotter(
 ):
     diffraction_tensor.to("cpu")
     for i in range(diffraction_tensor.shape[-4]):
-        diffraction_plotter(diffraction_tensor[i], distances[i], rgb_img, color)
+        multi_channel_plotter(diffraction_tensor[i], distances[i], rgb_img, color)
 
 
 def num_gpus():
