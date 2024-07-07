@@ -6,6 +6,8 @@ from torchvision import transforms
 from PIL import Image
 import matplotlib.pyplot as plt
 
+import zipfile
+
 
 def complex_plain(amplitude_tensor, phase_tensor):
     """
@@ -283,3 +285,7 @@ def gpus_info(gpu_list):
 def current_gpu_info():
     current_device = torch.cuda.current_device()
     print(f"""current gpu : {torch.cuda.get_device_name(current_device)}""")
+
+def unzip_file(zip_path, dest_path):
+    with zipfile.ZipFile(zip_path, 'r') as zip_ref:
+        zip_ref.extractall(dest_path)
