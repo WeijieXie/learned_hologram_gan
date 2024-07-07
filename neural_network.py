@@ -2,6 +2,7 @@ import torch
 from torch import nn
 from torch.nn import functional as F
 
+from utilities import try_gpu
 
 class ResidualBlock(nn.Module):
     def __init__(self, num_channels, use_1x1conv=False, strides=1):
@@ -42,7 +43,8 @@ class ResNet(nn.Module):
             self.part_3(),  # global pooling and dense layer
         )
         self._initialize_weights()
-        self.to(try_gpu())
+        self.device = try_gpu()
+        self.to(self.device)
 
     def part_1(self):
         return nn.Sequential(
@@ -130,7 +132,7 @@ class ResNet(nn.Module):
         net.eval()
         acc_sum, n = 0.0, 0
         for X, y in data_iter:
-            X, y = X.to(device), y.to(device)
+            X, y = X.to(self.device), y.to(self.device)
             with torch.no_grad():
                 y_hat = net(X)
             acc_sum += (y_hat.argmax(axis=1) == y).sum()
