@@ -1,3 +1,5 @@
 .ipynb_checkpoints
 .vscode
+*.exr
+*.tfrecord
 __pycache__

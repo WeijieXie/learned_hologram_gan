@@ -146,9 +146,6 @@ class bandLimitedAngularSpectrumMethod:
                 * (self.wave_length.unsqueeze(0))
             )
 
-            # u_limit = 0.1 * u_limit
-            # v_limit = 0.1 * v_limit
-
             mask_u = torch.abs(self.freq_x).unsqueeze(0).unsqueeze(1).unsqueeze(
                 3
             ) < u_limit.unsqueeze(2).unsqueeze(3)
@@ -165,6 +162,8 @@ class bandLimitedAngularSpectrumMethod:
                     )
                 )
         else:
+            # mask = torch.zeros_like(self.phaseTensor)
+            # mask
             mask = torch.Tensor([1.0])
 
         return mask
