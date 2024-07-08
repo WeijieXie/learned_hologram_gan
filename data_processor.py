@@ -4,8 +4,9 @@ import os
 import OpenEXR
 import Imath
 import matplotlib.pyplot as plt
-from torchvision import transforms
 from torch.utils.data import Dataset
+
+import utilities
 
 
 def get_files_in_dir(directory):
@@ -17,7 +18,7 @@ def get_files_in_dir(directory):
 def read_exr(filename, plot=False):
     exr_file = OpenEXR.InputFile(filename)
 
-    header = exr_file.header()
+    # header = exr_file.header()
     dw = exr_file.header()["dataWindow"]
     width, height = dw.max.x - dw.min.x + 1, dw.max.y - dw.min.y + 1
 
@@ -35,15 +36,14 @@ def read_exr(filename, plot=False):
     R = read_channel("R")
     G = read_channel("G")
     B = read_channel("B")
-    img = np.stack([R, G, B], axis=-1)
 
     if plot:
+        img = np.stack([R, G, B], axis=-1)
         plt.imshow(img)
         plt.show()
+        # transform = transforms.Compose([transforms.ToTensor()])
 
-    transform = transforms.Compose([transforms.ToTensor()])
-
-    return transform(img)
+    return np.stack([R, G, B], dtype=np.float32)
 
 
 class data_generator:
@@ -73,39 +73,48 @@ class data_generator:
         else:
             self.des = des
 
-        self.output = torch.zeros(self.samplesNum, channelsNum * height * width)
+    # def __iter__(self):
+    #     return self.read_exrs()
 
-    def __iter__(self):
-        return self.read_exrs()
-
-    # def __len__(self):
-    #     return len(self.filePaths)
+    def __len__(self):
+        return len(self.filePaths)
 
     # def __getitem__(self, idx):
     #     if idx < 0 or idx >= len(self.filePaths):
     #         raise IndexError("Index out of range")
     #     return read_exr(self.filePaths[idx])
 
-    def read_exrs(self):
-        for filePath in self.filePaths:
-            yield read_exr(filePath)
+    # def read_exrs(self):
+    #     for filePath in self.filePaths:
+    #         yield read_exr(filePath)
 
-    def save_as_torch(self):
-        for i, tensor in enumerate(self):
-            self.output[i] = torch.flatten(tensor)
-        torch.save(self.output, os.path.join(self.des, self.folderName + ".pt"))
+    def save_as_np_array(self):
+        output = np.zeros(
+            (self.samplesNum, self.channelsNum, self.height, self.width),
+            dtype=np.float32,
+        )
+        # print(f"the shape of the output is {output.shape}")
+        for i, filePath in enumerate(self.filePaths):
+            sample = read_exr(filePath)
+            # print(f"the shape of the sample is {sample.shape}")
+            output[i, :, :, :] = sample
+        output.tofile(os.path.join(self.des, self.folderName + ".bin"))
+        print(
+            f"Saved {os.path.join(self.des, self.folderName)}.bin and the size is {os.path.getsize(os.path.join(self.des, self.folderName + '.bin'))}"
+        )
 
 
 def read_exr_in_multi_folders(directory, channlesNum=3, height=192, width=192):
     """
     Read exr files in multiple folders and save them as torch tensors
     """
-    # only read folders in the directory
+    # only read folders in the directory without hiding
     folders = [
         folder
         for folder in os.listdir(directory)
         if os.path.isdir(os.path.join(directory, folder))
     ]
+    print(f"there are {len(folders)} folders in the directory")
     for folder in folders:
         generator = data_generator(
             os.path.join(directory, folder),
@@ -113,8 +122,7 @@ def read_exr_in_multi_folders(directory, channlesNum=3, height=192, width=192):
             height=height,
             width=width,
         )
-        generator.save_as_torch()
-        print(f"Saved {os.path.join(directory, folder)}.pt")
+        generator.save_as_np_array()
 
 
 class data_loader(Dataset):
@@ -125,23 +133,33 @@ class data_loader(Dataset):
         phs_path,
         img_path,
         depth_path,
+        samplesNum=3800,
         channlesNum=3,
         height=192,
         width=192,
+        cuda=False,
     ):
-        self.amp = torch.load(amp_path).view(-1, channlesNum, height, width)
-        self.phs = torch.load(phs_path).view(-1, channlesNum, height, width)
-        self.img = torch.load(img_path).view(-1, channlesNum, height, width)
-        self.depth = torch.load(depth_path).view(-1, channlesNum, height, width)
-
-        self.channelsNum = channlesNum
-        self.height = height
-        self.width = width
+        self.dataShape = (samplesNum, channlesNum, height, width)
+        self.amp = np.memmap(amp_path, dtype=np.float32, mode="r", shape=self.dataShape)
+        self.phs = np.memmap(phs_path, dtype=np.float32, mode="r", shape=self.dataShape)
+        self.img = np.memmap(img_path, dtype=np.float32, mode="r", shape=self.dataShape)
+        self.depth = np.memmap(
+            depth_path, dtype=np.float32, mode="r", shape=self.dataShape
+        )
+        if cuda:
+            self.device = utilities.try_gpu()
+        else:
+            self.device = torch.device("cpu")
 
     def __len__(self):
-        return self.amp.size(0)
+        return self.dataShape[0]
 
     def __getitem__(self, idx):
-        if idx < 0 or idx >= self.amp.size(0):
+        if idx < 0 or idx >= len(self):
             raise IndexError("Index out of range")
-        return self.amp[idx], self.phs[idx], self.img[idx], self.depth[idx]
+        return (
+            torch.tensor(self.amp[idx]).to(self.device),
+            torch.tensor(self.phs[idx]).to(self.device),
+            torch.tensor(self.img[idx]).to(self.device),
+            torch.tensor(self.depth[idx]).to(self.device),
+        )
