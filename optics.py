@@ -3,23 +3,6 @@ import utilities
 
 
 class bandLimitedAngularSpectrumMethod:
-    """
-    The band-limited angular spectrum method is a method to simulate the propagation of light in the holography system.
-
-    Parameters:
-    amplitudeTensor: tensor, the amplitude of the light field, whose dimension is (depths, rgb-channels, height, width)
-    phaseTensor: tensor, the phase of the light field, whose dimension is (depths, rgb-channels, height, width)
-    distances: tensor, the distances between the hologram and the sampling plain, whose dimension is (depths)
-    pixel_pitch: float, the pixel pitch of the hologram, whose unit is meter
-    wave_length: tensor, the wave length of the light, whose dimension is (rgb-channels)
-    band_limit: bool, whether to perform the band limitation
-    padding: bool, whether to doube the sampling plain
-    debug: bool, whether to print the debug information
-    device: str, the device to run the code, whose value is "cpu" or "cuda"
-
-    Returns:
-    bandLimitedAngularSpectrumMethod: object, the band-limited angular spectrum method object
-    """
 
     def __init__(
         self,
@@ -29,6 +12,7 @@ class bandLimitedAngularSpectrumMethod:
         pixel_pitch=3.74e-6,
         wave_length=torch.tensor([639e-9, 515e-9, 473e-9]),
         band_limit=True,
+        fresnel_approximation=False,
         padding=False,
         debug=False,
         device="cuda",
@@ -68,30 +52,26 @@ class bandLimitedAngularSpectrumMethod:
         self.samplingColNum = self.amplitudeTensor.shape[-1]
 
         self.band_limit = band_limit
+        self.fresnel_approximation = fresnel_approximation
         self.padding = padding
         self.debug = debug
 
-        self.w_mesh = self.frequencyMesh()
-        self.bandLimitedMask = self.band_limited_mask().to(self.device)
-
-    def frequencyMesh(self):
-        """
-        The frequency mesh is a tensor that contains the frequency of the light field.
-
-        Parameters:
-        None
-
-        Returns:
-        w_mesh: 3-D tensor, the frequency mesh of the light field, whose dimension is (rgb-channels, height, width)
-        """
         self.freq_x = torch.fft.fftfreq(self.samplingRowNum, self.pixel_pitch)
         self.freq_y = torch.fft.fftfreq(self.samplingColNum, self.pixel_pitch)
+        self.mesh_x_y = self.freq_x.unsqueeze(1) ** 2 + self.freq_y.unsqueeze(0) ** 2
 
-        mesh_x_y = self.freq_x.unsqueeze(1) ** 2 + self.freq_y.unsqueeze(0) ** 2
+        self.w_mesh = self.frequencyMesh()
+        self.bandLimitedMask = self.band_limited_mask().to(self.device)
+        self.H = self.transfer_function(self.fresne l_approximation).to(self.device)
+
+    def frequencyMesh(self):
+
         mesh_wave_length = 1 / self.wave_length**2
+
+        # evanescent wave
         w_mesh = torch.sqrt(
             torch.clamp(
-                mesh_wave_length.unsqueeze(1).unsqueeze(2) - mesh_x_y.unsqueeze(0),
+                mesh_wave_length.unsqueeze(1).unsqueeze(2) - self.mesh_x_y.unsqueeze(0),
                 min=0,
             )
         )
@@ -116,15 +96,6 @@ class bandLimitedAngularSpectrumMethod:
         return w_mesh
 
     def band_limited_mask(self):
-        """
-        The band limited mask is used for cutting off the high frequency of the light field to perform the band limitation.
-
-        Parameters:
-        None
-
-        Returns:
-        mask: 4-D tensor, the mask of the light field, whose dimension is (depths, rgb-channels, height, width)
-        """
 
         if self.band_limit:
             S_height = (
@@ -162,35 +133,43 @@ class bandLimitedAngularSpectrumMethod:
                     )
                 )
         else:
-            # mask = torch.zeros_like(self.phaseTensor)
-            # mask
             mask = torch.Tensor([1.0])
 
         return mask
 
+    def transfer_function(self, FresnelApproximation=False):
+        if FresnelApproximation:
+            # Fresnel's approximation
+            H = torch.exp(
+                1j
+                * torch.pi
+                * self.distances.unsqueeze(1).unsqueeze(2).unsqueeze(3)
+                * (
+                    2 / self.wave_length.unsqueeze(0).unsqueeze(2).unsqueeze(3)
+                    - self.wave_length.unsqueeze(0).unsqueeze(2).unsqueeze(3)
+                    * self.mesh_x_y.unsqueeze(0).unsqueeze(1)
+                )
+            )
+            print("using Fresnel's approximation")
+            print(H.shape)
+        else:
+            # transfer function
+            H = torch.exp(
+                2j
+                * torch.pi
+                * self.distances.unsqueeze(1).unsqueeze(2).unsqueeze(3)
+                * self.w_mesh
+            )
+            print("using Angular Spectrum Method")
+            print(H.shape)
+        return H
+
     def band_limited_angular_spectrum_multichannels(
         self,
     ):
-        """
-        The band limited angular spectrum method is a method to simulate the propagation of light in the holography system.
-
-        Returns:
-        g_z_complex: 4-D tensor, the complex amplitude of the light field, whose dimension is (depths, rgb-channels, height, width)
-        """
-
-        # transfer function
-        H_FR = torch.exp(
-            2j
-            * torch.pi
-            * self.distances.unsqueeze(1).unsqueeze(2).unsqueeze(3)
-            * self.w_mesh
-        ).to(self.device)
-
-        # Fresnel's approximation
-        # H_FR = torch.exp(1j * torch.pi * z * (2/wave_length.unsqueeze(1).unsqueeze(2)-wave_length.unsqueeze(1).unsqueeze(2)*freq_cube))
 
         G_0 = torch.fft.fft2(self.sourcePlain).to(self.device)
-        G_z = G_0 * H_FR * self.bandLimitedMask
+        G_z = G_0 * self.H * self.bandLimitedMask
         g_z_complex = torch.fft.ifft2(G_z)
 
         return g_z_complex
