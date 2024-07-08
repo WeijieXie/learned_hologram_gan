@@ -2,4 +2,5 @@
 .vscode
 *.exr
 *.tfrecord
+*.bin
 __pycache__
