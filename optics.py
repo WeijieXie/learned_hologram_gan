@@ -62,7 +62,30 @@ class bandLimitedAngularSpectrumMethod:
 
         self.w_mesh = self.frequencyMesh()
         self.bandLimitedMask = self.band_limited_mask().to(self.device)
-        self.H = self.transfer_function(self.fresne l_approximation).to(self.device)
+        self.H = self.transfer_function(self.fresnel_approximation).to(self.device)
+
+    def __del__(self):
+        del self.amplitudeTensor
+        del self.phaseTensor
+        del self.sourcePlain
+        del self.distances
+        del self.pixel_pitch
+        del self.wave_length
+        del self.samplingRowNum
+        del self.samplingColNum
+        del self.band_limit
+        del self.fresnel_approximation
+        del self.padding
+        del self.debug
+        del self.freq_x
+        del self.freq_y
+        del self.mesh_x_y
+        del self.w_mesh
+        del self.bandLimitedMask
+        del self.H
+
+        if self.device == "cuda":
+            torch.cuda.empty_cache()
 
     def frequencyMesh(self):
 
@@ -133,7 +156,9 @@ class bandLimitedAngularSpectrumMethod:
                     )
                 )
         else:
-            mask = torch.Tensor([1.0])
+            mask = utilities.mask_generator(
+                self.samplingRowNum, self.samplingColNum, 30, 50
+            )
 
         return mask
 
