@@ -47,6 +47,7 @@ def amplitude_tensor_generator_for_phase_only_hologram(image_path_or_tensor):
     else:
         raise ValueError("The input should be a string or a tensor.")
 
+
 def phase_tensor_generator(image_path_or_tensor):
     """
     Generate the phase tensor from the image with values normalized to 0-2*pi
@@ -221,7 +222,9 @@ def multi_channel_plotter(
             fig, axs = plt.subplots(1, 4, figsize=(30, 15))
             axs[3].imshow(diffraction_tensor.permute(1, 2, 0))
             axs[3].axis("off")
-            axs[3].set_title("The diffraction pattern at z = {} mm".format(round(distance.item(), 3)))
+            axs[3].set_title(
+                "The diffraction pattern at z = {} mm".format(round(distance.item(), 3))
+            )
         else:
             fig, axs = plt.subplots(1, 3, figsize=(30, 15))
 
@@ -234,7 +237,11 @@ def multi_channel_plotter(
             axs[i].imshow(rgb_tensor)
             axs[i].axis("off")
             # keep 3 decimal places
-            axs[i].set_title("The diffraction pattern at z = {}. mm".format(round(distance.item(), 3)))
+            axs[i].set_title(
+                "The diffraction pattern at z = {}. mm".format(
+                    round(distance.item(), 3)
+                )
+            )
         plt.show()
 
 
@@ -247,6 +254,33 @@ def multi_depth_plotter(
     diffraction_tensor.to("cpu")
     for i in range(diffraction_tensor.shape[-4]):
         multi_channel_plotter(diffraction_tensor[i], distances[i], rgb_img, color)
+
+
+def mask_generator(
+    sample_row_num,
+    sample_col_num,
+    u_limit,
+    v_limit,
+    pixel_pitch=3.74e-6,
+):
+    """
+    Generate the band limited mask
+
+    Args:
+    sample_row_num: int, the number of rows of the mask
+    sample_col_num: int, the number of columns of the mask
+    u_limit: float, the maximum frequency in the x direction
+    v_limit: float, the maximum frequency in the y direction
+
+    Returns:
+    mask: 2-D tensor, the band limited mask
+    """
+    freq_x = torch.fft.fftfreq(sample_row_num, 1.0 / sample_row_num)
+    freq_y = torch.fft.fftfreq(sample_col_num, 1.0 / sample_row_num)
+    mask_u = torch.abs(freq_x) < torch.tensor(u_limit)
+    mask_v = torch.abs(freq_y) < torch.tensor(v_limit)
+    mask = mask_u.unsqueeze(1) & mask_v.unsqueeze(0)
+    return mask
 
 
 def num_gpus():
@@ -286,6 +320,7 @@ def current_gpu_info():
     current_device = torch.cuda.current_device()
     print(f"""current gpu : {torch.cuda.get_device_name(current_device)}""")
 
+
 def unzip_file(zip_path, dest_path):
-    with zipfile.ZipFile(zip_path, 'r') as zip_ref:
+    with zipfile.ZipFile(zip_path, "r") as zip_ref:
         zip_ref.extractall(dest_path)
