@@ -12,6 +12,7 @@ import utilities
 def get_files_in_dir(directory):
     fileNames = os.listdir(directory)
     filePaths = [os.path.join(directory, name) for name in fileNames]
+    filePaths.sort()
     return filePaths
 
 
