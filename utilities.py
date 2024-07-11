@@ -256,6 +256,22 @@ def multi_depth_plotter(
         multi_channel_plotter(diffraction_tensor[i], distances[i], rgb_img, color)
 
 
+def generate_custom_frequency_mask(
+    sample_row_num=192,
+    sample_col_num=192,
+    x=0,
+    y=0,
+):
+    if 2 * x > sample_row_num or 2 * y > sample_col_num:
+        raise ValueError("The mask size is too large.")
+    mask = torch.zeros((sample_row_num, sample_col_num))
+    mask[
+        sample_row_num // 2 - x : sample_row_num // 2 + 1 + x,
+        sample_col_num // 2 - y : sample_col_num // 2 + 1 + y,
+    ] = 1
+    return torch.fft.ifftshift(mask)
+
+
 def mask_generator(
     sample_row_num,
     sample_col_num,
