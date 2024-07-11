@@ -12,7 +12,7 @@ class bandLimitedAngularSpectrumMethod:
         pixel_pitch=3.74e-6,
         wave_length=torch.tensor([639e-9, 515e-9, 473e-9]),
         band_limit=True,
-        fresnel_approximation=False,
+        approach="AngularSpectrumApproach",  # "FresnelTransferFunctionApproach"
         padding=False,
         debug=False,
         device="cuda",
@@ -52,7 +52,7 @@ class bandLimitedAngularSpectrumMethod:
         self.samplingColNum = self.amplitudeTensor.shape[-1]
 
         self.band_limit = band_limit
-        self.fresnel_approximation = fresnel_approximation
+        self.approach = approach
         self.padding = padding
         self.debug = debug
 
@@ -62,7 +62,7 @@ class bandLimitedAngularSpectrumMethod:
 
         self.w_mesh = self.frequencyMesh()
         self.bandLimitedMask = self.band_limited_mask().to(self.device)
-        self.H = self.transfer_function(self.fresnel_approximation).to(self.device)
+        self.H = self.transfer_function().to(self.device)
 
     def __del__(self):
         del self.amplitudeTensor
@@ -74,7 +74,6 @@ class bandLimitedAngularSpectrumMethod:
         del self.samplingRowNum
         del self.samplingColNum
         del self.band_limit
-        del self.fresnel_approximation
         del self.padding
         del self.debug
         del self.freq_x
@@ -162,31 +161,34 @@ class bandLimitedAngularSpectrumMethod:
 
         return mask
 
-    def transfer_function(self, FresnelApproximation=False):
-        if FresnelApproximation:
-            # Fresnel's approximation
-            H = torch.exp(
-                1j
-                * torch.pi
-                * self.distances.unsqueeze(1).unsqueeze(2).unsqueeze(3)
-                * (
-                    2 / self.wave_length.unsqueeze(0).unsqueeze(2).unsqueeze(3)
-                    - self.wave_length.unsqueeze(0).unsqueeze(2).unsqueeze(3)
-                    * self.mesh_x_y.unsqueeze(0).unsqueeze(1)
+    def transfer_function(self):
+        match self.approach:
+            case "FresnelTransferFunctionApproach":
+                # Fresnel's approximation
+                H = torch.exp(
+                    1j
+                    * torch.pi
+                    * self.distances.unsqueeze(1).unsqueeze(2).unsqueeze(3)
+                    * (
+                        2 / self.wave_length.unsqueeze(0).unsqueeze(2).unsqueeze(3)
+                        - self.wave_length.unsqueeze(0).unsqueeze(2).unsqueeze(3)
+                        * self.mesh_x_y.unsqueeze(0).unsqueeze(1)
+                    )
                 )
-            )
-            print("using Fresnel's approximation")
-            print(H.shape)
-        else:
-            # transfer function
-            H = torch.exp(
-                2j
-                * torch.pi
-                * self.distances.unsqueeze(1).unsqueeze(2).unsqueeze(3)
-                * self.w_mesh
-            )
-            print("using Angular Spectrum Method")
-            print(H.shape)
+                print("using Fresnel's approximation")
+                print(H.shape)
+
+            case "AngularSpectrumApproach":
+                # transfer function
+                H = torch.exp(
+                    2j
+                    * torch.pi
+                    * self.distances.unsqueeze(1).unsqueeze(2).unsqueeze(3)
+                    * self.w_mesh
+                )
+                print("using Angular Spectrum Method")
+                print(H.shape)
+
         return H
 
     def band_limited_angular_spectrum_multichannels(
