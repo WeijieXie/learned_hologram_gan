@@ -1,6 +1,8 @@
 .ipynb_checkpoints
 .vscode
+*.png
 *.exr
 *.tfrecord
 *.bin
+odak.log
 __pycache__
