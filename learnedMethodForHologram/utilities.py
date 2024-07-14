@@ -96,7 +96,7 @@ def zero_padding(tensorX):
     return tensorX
 
 
-def cut_padding(tensorX):
+def cut_center_256_192(tensor_256):
     """
     Cut the last 2 dims of the tensor from doubled size to the original size
 
@@ -106,12 +106,12 @@ def cut_padding(tensorX):
     Returns:
     tensorX: x-D tensor, the cut tensor
     """
-    tensorX = tensorX[
+    tensor_192 = tensor_256[
         ...,
-        tensorX.shape[-1] // 4 : (3 * tensorX.shape[-1]) // 4,
-        tensorX.shape[-2] // 4 : (3 * tensorX.shape[-2]) // 4,
+        32 : 223,
+        32 : 223,
     ]
-    return tensorX
+    return tensor_192
 
 
 def tensor_normalizor_2D(intensity):
@@ -242,7 +242,9 @@ def multi_channel_plotter(
                 axs[3].imshow(diffraction_tensor.permute(1, 2, 0))
                 axs[3].axis("off")
                 axs[3].set_title(
-                    "The diffraction pattern at z = {} mm".format(round(distance.item(), 3))
+                    "The diffraction pattern at z = {} mm".format(
+                        round(distance.item(), 3)
+                    )
                 )
             else:
                 fig, axs = plt.subplots(1, 3, figsize=(30, 15))
