@@ -8,7 +8,7 @@ def test(output_directory="output/test_output"):
         "data/images/sample_hologram.png"
     )
     amplitude_tensor = torch.ones_like(phase_tensor)
-    distances = torch.linspace(0, 5e-3, 5)
+    distances = torch.linspace(-1e-3, 2.5e-3, 4)
     spacial_frequency_filter = (
         learnedMethodForHologram.utilities.generate_custom_frequency_mask(
             sample_row_num=2400,
