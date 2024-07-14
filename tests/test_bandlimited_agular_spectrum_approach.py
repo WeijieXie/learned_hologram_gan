@@ -23,7 +23,6 @@ def test(output_directory="output/test_output"):
         pixel_pitch=3.74e-6,
         wave_length=torch.tensor([639e-9, 515e-9, 473e-9]),
         band_limit=True,
-        padding=False,
         cuda=False,
     )
     intensities = propagator(
