@@ -1,4 +1,5 @@
 import torch
+from torch import nn
 from . import utilities
 
 
@@ -11,7 +12,6 @@ class bandLimitedAngularSpectrumMethod:
         pixel_pitch=3.74e-6,
         wave_length=torch.tensor([639e-9, 515e-9, 473e-9]),
         band_limit=True,
-        padding=False,
         cuda=False,
     ):
         self.samplingRowNum = sample_row_num
@@ -19,7 +19,6 @@ class bandLimitedAngularSpectrumMethod:
         self.pixel_pitch = pixel_pitch
         self.wave_length = wave_length
         self.band_limit = band_limit
-        self.padding = padding
         self.device = utilities.try_gpu() if cuda else torch.device("cpu")
 
         self.freq_x = torch.fft.fftfreq(self.samplingRowNum, self.pixel_pitch)
@@ -27,9 +26,6 @@ class bandLimitedAngularSpectrumMethod:
 
         self.diffraction_limited_mask = self.generate_diffraction_limited_mask()
         self.w_grid = self.generate_w_grid()
-
-        if padding:
-            pass
 
         if band_limit:
             pass
