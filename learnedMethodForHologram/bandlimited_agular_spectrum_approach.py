@@ -25,6 +25,7 @@ class bandLimitedAngularSpectrumMethod:
         self.freq_x = torch.fft.fftfreq(self.samplingRowNum, self.pixel_pitch)
         self.freq_y = torch.fft.fftfreq(self.samplingColNum, self.pixel_pitch)
 
+        self.diffraction_limited_mask = self.generate_diffraction_limited_mask()
         self.w_grid = self.generate_w_grid()
 
         if padding:
@@ -42,13 +43,17 @@ class bandLimitedAngularSpectrumMethod:
     ):
         G_0 = torch.fft.fft2(amplitute_tensor * torch.exp(1j * phase_tensor))
         H = self.generate_transfer_function(distances)
-        G_z = G_0 * H * spacial_frequency_filter
+        G_z = G_0 * H * self.diffraction_limited_mask
         intensity = torch.abs(torch.fft.ifft2(G_z)) ** 2
-        # intensity = utilities.intensity_calculator(torch.fft.ifft2(G_z))
         return intensity
 
-    def generate_custom_mask(self):
-        pass
+    def generate_diffraction_limited_mask(self):
+        return utilities.generate_custom_frequency_mask(
+            sample_row_num=self.samplingRowNum,
+            sample_col_num=self.samplingColNum,
+            x=self.samplingRowNum // 3,
+            y=self.samplingRowNum // 3 * self.samplingColNum // self.samplingRowNum,
+        )
 
     def generate_w_grid(self):
         squared_u_v_grid = self.freq_x.unsqueeze(1) ** 2 + self.freq_y.unsqueeze(0) ** 2
