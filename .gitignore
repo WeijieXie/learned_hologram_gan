@@ -6,3 +6,5 @@
 *.bin
 odak.log
 __pycache__
+
+learnedMethodForHologram.egg-info/*
