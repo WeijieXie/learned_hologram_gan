@@ -35,7 +35,7 @@ class bandLimitedAngularSpectrumMethod:
         amplitute_tensor,
         phase_tensor,
         distances,
-        spacial_frequency_filter,
+        spacial_frequency_filter=None,
     ):
         G_0 = torch.fft.fft2(amplitute_tensor * torch.exp(1j * phase_tensor))
         H = self.generate_transfer_function(distances)
