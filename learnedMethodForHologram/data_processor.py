@@ -5,6 +5,7 @@ import OpenEXR
 import Imath
 import matplotlib.pyplot as plt
 from torch.utils.data import Dataset
+from torch.nn import functional as F
 
 from .utilities import try_gpu
 
@@ -138,6 +139,7 @@ class data_loader(Dataset):
         channlesNum=3,
         height=192,
         width=192,
+        padding=False,
         cuda=False,
     ):
         self.dataShape = (samplesNum, channlesNum, height, width)
@@ -147,10 +149,15 @@ class data_loader(Dataset):
         self.depth = np.memmap(
             depth_path, dtype=np.float32, mode="r", shape=self.dataShape
         )
+        self.padding = padding
         if cuda:
             self.device = try_gpu()
         else:
             self.device = torch.device("cpu")
+
+        if padding:
+            if height != 192 or width != 192:
+                raise ValueError("Current padding is only supported for 192x192 images")
 
     def __len__(self):
         return self.dataShape[0]
@@ -158,9 +165,17 @@ class data_loader(Dataset):
     def __getitem__(self, idx):
         if idx < 0 or idx >= len(self):
             raise IndexError("Index out of range")
-        return (
-            torch.tensor(self.amp[idx]).to(self.device),
-            torch.tensor(self.phs[idx]).to(self.device),
-            torch.tensor(self.img[idx]).to(self.device),
-            torch.tensor(self.depth[idx]).to(self.device),
-        )
+        if self.padding:
+            return (
+                F.pad(torch.tensor(self.amp[idx]).to(self.device), (32, 32, 32, 32)),
+                F.pad(torch.tensor(self.phs[idx]).to(self.device), (32, 32, 32, 32)),
+                F.pad(torch.tensor(self.img[idx]).to(self.device), (32, 32, 32, 32)),
+                F.pad(torch.tensor(self.depth[idx]).to(self.device), (32, 32, 32, 32)),
+            )
+        else:
+            return (
+                torch.tensor(self.amp[idx]).to(self.device),
+                torch.tensor(self.phs[idx]).to(self.device),
+                torch.tensor(self.img[idx]).to(self.device),
+                torch.tensor(self.depth[idx]).to(self.device),
+            )
