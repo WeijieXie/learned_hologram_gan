@@ -1,2 +1,1 @@
 from . import test_bandlimited_agular_spectrum_approach
-from . import test_learn_wave_propagator_odak
