@@ -8,7 +8,7 @@ def test(output_directory="output/test_output"):
         "data/images/sample_hologram.png"
     )
     amplitude_tensor = torch.ones_like(phase_tensor)
-    distances = torch.linspace(0, 5e-3, 7)
+    distances = torch.linspace(0, 5e-3, 5)
     spacial_frequency_filter = (
         learnedMethodForHologram.utilities.generate_custom_frequency_mask(
             sample_row_num=2400,
@@ -35,6 +35,16 @@ def test(output_directory="output/test_output"):
     normalized_intensities = learnedMethodForHologram.utilities.tensor_normalizor_2D(
         intensities
     )
+
+    # print(normalized_intensities.shape)
+    # max, _ = torch.max(normalized_intensities, dim=-1, keepdim=True)
+    # max, _ = torch.max(max, dim=-2, keepdim=True)
+    # min, _ = torch.min(normalized_intensities, dim=-1, keepdim=True)
+    # min, _ = torch.min(min, dim=-2, keepdim=True)
+    # print(max.shape, min.shape)
+    # print(max.squeeze())
+    # print(min.squeeze())
+
     learnedMethodForHologram.utilities.multi_depth_plotter(
         normalized_intensities,
         distances,
