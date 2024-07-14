@@ -14,4 +14,5 @@ requires = ["setuptools", "wheel"]
 build-backend = "setuptools.build_meta"
 
 [tool.setuptools.packages.find]
-include = ["learnedMethodForHologram", "learnedMethodForHologram.*","test", "test.*"]
+include = ["learnedMethodForHologram", "learnedMethodForHologram.*","test"]
+exclude = ["tests.tests_odak"]
