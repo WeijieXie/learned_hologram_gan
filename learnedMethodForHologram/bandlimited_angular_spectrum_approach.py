@@ -44,6 +44,7 @@ class bandLimitedAngularSpectrumMethod:
         self.freq_x = torch.fft.fftfreq(self.samplingRowNum, self.pixel_pitch)
         self.freq_y = torch.fft.fftfreq(self.samplingColNum, self.pixel_pitch)
 
+        # simulate the imaging system
         self.diffraction_limited_mask = self.generate_diffraction_limited_mask().to(
             self.device
         )
@@ -105,7 +106,10 @@ class bandLimitedAngularSpectrumMethod:
             )
         )
         H = self.generate_transfer_function(distances)
-        g_z = torch.fft.ifft2(G_0 * H) # NOTICE: if the direction of the propagation is backward, need to divide H
+
+        # NOTICE: if the direction of the propagation is backward, need to divide H!!!!!!!!
+        g_z = torch.fft.ifft2(G_0 * H)
+
         return torch.cat((torch.abs(g_z), torch.angle(g_z)), dim=1)
 
     def propagate_P2I(
@@ -194,7 +198,9 @@ class bandLimitedAngularSpectrumMethod:
         return H.squeeze()
 
 
-class bandLimitedAngularSpectrumMethod_for_single_fixed_distance:
+class bandLimitedAngularSpectrumMethod_for_single_fixed_distance(
+    bandLimitedAngularSpectrumMethod
+):
     """
     The band limited angular spectrum method for the hologram reconstruction.
     This version is designed for the case that the distance is fixed.
@@ -223,28 +229,22 @@ class bandLimitedAngularSpectrumMethod_for_single_fixed_distance:
         wave_length=torch.tensor([639e-9, 515e-9, 473e-9]),
         band_limit=False,
         cuda=False,
-        distance=2.5e-2,
+        distance=torch.tensor([2.5e-2]),
     ):
-        self.samplingRowNum = sample_row_num
-        self.samplingColNum = sample_col_num
-        self.pixel_pitch = pixel_pitch
-        self.wave_length = wave_length
-        self.band_limit = band_limit
-        self.device = utilities.try_gpu() if cuda else torch.device("cpu")
-
-        self.freq_x = torch.fft.fftfreq(self.samplingRowNum, self.pixel_pitch)
-        self.freq_y = torch.fft.fftfreq(self.samplingColNum, self.pixel_pitch)
-
-        self.diffraction_limited_mask = self.generate_diffraction_limited_mask().to(
-            self.device
+        super(
+            bandLimitedAngularSpectrumMethod_for_single_fixed_distance, self
+        ).__init__(
+            sample_row_num,
+            sample_col_num,
+            pixel_pitch,
+            wave_length,
+            band_limit,
+            cuda,
         )
-
-        if band_limit:
-            pass
 
         # these parameters are fixed to accelerate the calculation in network
         self.distance = distance
-        # self.band_limited_mask = self.generate_band_limited_mask().to(self.device)
+        self.band_limited_mask = self.generate_band_limited_mask().to(self.device)
         self.H = self.generate_transfer_function().to(self.device)
 
     def __call__(
@@ -267,7 +267,7 @@ class bandLimitedAngularSpectrumMethod_for_single_fixed_distance:
         """
         Propagate the amplitude and phase tensor of the object to the amplitude and phase tensor of the image.
         The propagation direction is backward.
-        
+
         Args:
             amp_phs_tensor_0 (torch.Tensor): The amplitude and phase tensor of the object whose shape is (batch_size, 6, samplingRowNum, samplingColNum).
 
@@ -285,7 +285,9 @@ class bandLimitedAngularSpectrumMethod_for_single_fixed_distance:
                 )[:, :, 1]
             )
         )
-        g_z = torch.fft.ifft2(G_0 / self.H) # because of the direction of the propagation
+        g_z = torch.fft.ifft2(
+            G_0 / self.H
+        )  # because of the direction of the propagation
         return torch.cat((torch.abs(g_z), torch.angle(g_z)), dim=1)
 
     def propagate_P2I(
@@ -305,39 +307,6 @@ class bandLimitedAngularSpectrumMethod_for_single_fixed_distance:
         G_0 = torch.fft.fft2(torch.exp(1j * phase_tensor))
         G_z = G_0 * self.H * self.diffraction_limited_mask
         return torch.abs(torch.fft.ifft2(G_z)) ** 2
-
-    def generate_diffraction_limited_mask(self):
-        """
-        Generate a diffraction limited mask for the angular spectrum method to simulate the imaging system.
-        Working on the cpu.
-
-        Returns:
-            torch.Tensor: The diffraction limited mask.
-        """
-        return utilities.generate_custom_frequency_mask(
-            sample_row_num=self.samplingRowNum,
-            sample_col_num=self.samplingColNum,
-            x=self.samplingRowNum // 3,
-            y=self.samplingRowNum // 3 * self.samplingColNum // self.samplingRowNum,
-        )
-
-    def generate_w_grid(self):
-        """
-        Generate a grid of w values for the angular spectrum method.
-        Working on the cpu.
-
-        Returns:
-            torch.Tensor: The grid of w values.
-        """
-        squared_u_v_grid = self.freq_x.unsqueeze(1) ** 2 + self.freq_y.unsqueeze(0) ** 2
-        w_grid = torch.sqrt(
-            torch.clamp(
-                (1 / self.wave_length**2).unsqueeze(1).unsqueeze(2)
-                - squared_u_v_grid.unsqueeze(0),
-                min=0,
-            )
-        )
-        return w_grid
 
     def generate_band_limited_mask(self):
         d_x_0 = 1 / (self.samplingRowNum * self.pixel_pitch)
@@ -362,5 +331,5 @@ class bandLimitedAngularSpectrumMethod_for_single_fixed_distance:
         return mask_u & mask_v
 
     def generate_transfer_function(self):
-        H = torch.exp(-2j * torch.pi * self.distance * self.generate_w_grid())
+        H = torch.exp(-2j * torch.pi * self.distance * super().generate_w_grid())
         return H
