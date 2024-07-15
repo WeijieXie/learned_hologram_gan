@@ -8,7 +8,7 @@ class bandLimitedAngularSpectrumMethod:
     batch/distances * channels * rows * cols
     It is worth noting that:
     1. the band_limit flag is not implemented yet.
-    2. it DOES NOT support batch processing and multi-distance processing at the same time. 
+    2. it DOES NOT support batch processing and multi-distance processing at the same time.
     In test_bandlimited_agular_spectrum_approach, dim = 0 is interpreted as the different distances.
     While in network, dim = 0 is interpreted as the batch size.
 
@@ -31,7 +31,7 @@ class bandLimitedAngularSpectrumMethod:
         sample_col_num=192,
         pixel_pitch=3.74e-6,
         wave_length=torch.tensor([639e-9, 515e-9, 473e-9]),
-        band_limit=True,
+        band_limit=False,
         cuda=False,
     ):
         self.samplingRowNum = sample_row_num
@@ -76,7 +76,38 @@ class bandLimitedAngularSpectrumMethod:
         H = self.generate_transfer_function(distances)
         G_z = G_0 * H * self.diffraction_limited_mask
         intensity = torch.abs(torch.fft.ifft2(G_z)) ** 2
-        return intensity.squeeze()
+        return intensity
+
+    def propagate_AP2AP(
+        self,
+        amp_phs_tensor_0,
+        distances,
+    ):
+        G_0 = torch.fft.fft2(
+            amp_phs_tensor_0.view(-1, 3, 2, self.samplingRowNum, self.samplingColNum)[
+                :, :, 0
+            ]
+            * torch.exp(
+                1j
+                * amp_phs_tensor_0.view(
+                    -1, 3, 2, self.samplingRowNum, self.samplingColNum
+                )[:, :, 1]
+            )
+        )
+        H = self.generate_transfer_function(distances)
+        g_z = torch.fft.ifft2(G_0 * H)
+        return torch.cat((torch.abs(g_z), torch.angle(g_z)), dim=1)
+
+    def propagate_P2I(
+        self,
+        phase_tensor,
+        distances,
+        spacial_frequency_filter=None,
+    ):
+        G_0 = torch.fft.fft2(torch.exp(1j * phase_tensor))
+        H = self.generate_transfer_function(distances)
+        G_z = G_0 * H * self.diffraction_limited_mask
+        return torch.abs(torch.fft.ifft2(G_z)) ** 2
 
     def generate_diffraction_limited_mask(self):
         """
