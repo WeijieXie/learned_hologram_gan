@@ -4,7 +4,6 @@ from . import utilities
 
 
 class bandLimitedAngularSpectrumMethod:
-
     def __init__(
         self,
         sample_row_num=192,
@@ -24,8 +23,10 @@ class bandLimitedAngularSpectrumMethod:
         self.freq_x = torch.fft.fftfreq(self.samplingRowNum, self.pixel_pitch)
         self.freq_y = torch.fft.fftfreq(self.samplingColNum, self.pixel_pitch)
 
-        self.diffraction_limited_mask = self.generate_diffraction_limited_mask()
-        self.w_grid = self.generate_w_grid()
+        self.diffraction_limited_mask = self.generate_diffraction_limited_mask().to(
+            self.device
+        )
+        self.w_grid = self.generate_w_grid().to(self.device)
 
         if band_limit:
             pass
@@ -37,13 +38,33 @@ class bandLimitedAngularSpectrumMethod:
         distances,
         spacial_frequency_filter=None,
     ):
+        """
+        The forward function of the angular spectrum method.
+        Working on the cpu/gpu.
+
+        Args:
+            amplitute_tensor (torch.Tensor): The amplitute tensor of the hologram.
+            phase_tensor (torch.Tensor): The phase tensor of the hologram.
+            distances (torch.Tensor): The distances of the diffractions.
+            spacial_frequency_filter (torch.Tensor): The spacial frequency filter.
+
+        Returns:
+            torch.Tensor: The intensity of the hologram.
+        """
         G_0 = torch.fft.fft2(amplitute_tensor * torch.exp(1j * phase_tensor))
         H = self.generate_transfer_function(distances)
         G_z = G_0 * H * self.diffraction_limited_mask
         intensity = torch.abs(torch.fft.ifft2(G_z)) ** 2
-        return intensity
+        return intensity.squeeze()
 
     def generate_diffraction_limited_mask(self):
+        """
+        Generate a diffraction limited mask for the angular spectrum method to simulate the imaging system.
+        Working on the cpu.
+
+        Returns:
+            torch.Tensor: The diffraction limited mask.
+        """
         return utilities.generate_custom_frequency_mask(
             sample_row_num=self.samplingRowNum,
             sample_col_num=self.samplingColNum,
@@ -52,6 +73,13 @@ class bandLimitedAngularSpectrumMethod:
         )
 
     def generate_w_grid(self):
+        """
+        Generate a grid of w values for the angular spectrum method.
+        Working on the cpu.
+
+        Returns:
+            torch.Tensor: The grid of w values.
+        """
         squared_u_v_grid = self.freq_x.unsqueeze(1) ** 2 + self.freq_y.unsqueeze(0) ** 2
         w_grid = torch.sqrt(
             torch.clamp(
@@ -85,6 +113,16 @@ class bandLimitedAngularSpectrumMethod:
         return mask_u & mask_v
 
     def generate_transfer_function(self, distances):
+        """
+        Generate the transfer function for the angular spectrum method.
+        Working on the gpu.
+
+        Args:
+            distances (torch.Tensor): The distances of the diffractions.
+
+        Returns:
+            torch.Tensor: The transfer function.
+        """
         H = torch.exp(
             -2j
             * torch.pi
