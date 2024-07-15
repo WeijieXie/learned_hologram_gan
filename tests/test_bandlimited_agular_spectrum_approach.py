@@ -3,12 +3,15 @@ import torch
 import learnedMethodForHologram.utilities
 
 
-def test(output_directory="output/test_output"):
+def test(output_directory="output/test_output", cuda=False):
+    device = (
+        learnedMethodForHologram.utilities.try_gpu() if cuda else torch.device("cpu")
+    )
     phase_tensor = learnedMethodForHologram.utilities.phase_tensor_generator(
         "data/images/sample_hologram.png"
-    )
-    amplitude_tensor = torch.ones_like(phase_tensor)
-    distances = torch.linspace(-1e-3, 2.5e-3, 4)
+    ).to(device)
+    amplitude_tensor = torch.ones_like(phase_tensor).to(device)
+    distances = torch.linspace(-1e-3, 2.5e-3, 4).to(device)
     spacial_frequency_filter = (
         learnedMethodForHologram.utilities.generate_custom_frequency_mask(
             sample_row_num=2400,
@@ -23,7 +26,7 @@ def test(output_directory="output/test_output"):
         pixel_pitch=3.74e-6,
         wave_length=torch.tensor([639e-9, 515e-9, 473e-9]),
         band_limit=True,
-        cuda=False,
+        cuda=cuda,
     )
     intensities = propagator(
         amplitute_tensor=amplitude_tensor,
