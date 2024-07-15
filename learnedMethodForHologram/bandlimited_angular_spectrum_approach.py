@@ -1,9 +1,29 @@
 import torch
-from torch import nn
 from . import utilities
 
 
 class bandLimitedAngularSpectrumMethod:
+    """
+    The band limited angular spectrum method for the hologram reconstruction.
+    It is worth noting that:
+    1. the band_limit flag is not implemented yet.
+    2. it DOES NOT support batch processing and multi-distance processing at the same time. 
+    In test_bandlimited_agular_spectrum_approach, dim = 0 is interpreted as the different distances.
+    While in network, dim = 0 is interpreted as the batch size.
+
+    Attributes:
+        samplingRowNum (int): The number of rows in the hologram.
+        samplingColNum (int): The number of columns in the hologram.
+        pixel_pitch (float): The pixel pitch of the hologram.
+        wave_length (torch.Tensor): The wave length of the light.
+        band_limit (bool): The flag of band limiting.
+        device (torch.device): The device of the calculation.
+        freq_x (torch.Tensor): The frequency grid in x direction.
+        freq_y (torch.Tensor): The frequency grid in y direction.
+        diffraction_limited_mask (torch.Tensor): The diffraction limited mask.
+        w_grid (torch.Tensor): The grid of w values.
+    """
+
     def __init__(
         self,
         sample_row_num=192,
@@ -130,4 +150,4 @@ class bandLimitedAngularSpectrumMethod:
             * self.w_grid
         )
 
-        return H
+        return H.squeeze()
