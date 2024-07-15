@@ -193,12 +193,11 @@ class data_loader(Dataset):
             )
 
 
-class data_loader_img_depth_single_channel(Dataset):
+class data_loader_img_depth(Dataset):
     def __init__(
         self,
         img_path,
         depth_path,
-        channelIdx=0,
         samplesNum=3800,
         channlesNum=3,
         height=192,
@@ -211,7 +210,6 @@ class data_loader_img_depth_single_channel(Dataset):
         self.depth = np.memmap(
             depth_path, dtype=np.float32, mode="r", shape=self.dataShape
         )
-        self.channelIdx = channelIdx
         self.padding = padding
         if cuda:
             self.device = try_gpu()
@@ -228,15 +226,21 @@ class data_loader_img_depth_single_channel(Dataset):
     def __getitem__(self, idx):
         if idx < 0 or idx >= len(self):
             raise IndexError("Index out of range")
-        # if self.padding:
-        #     return (
-        #         F.pad(torch.tensor(self.img[idx]).to(self.device), (160, 160, 160, 160)),
-        #         F.pad(torch.tensor(self.depth[idx]).to(self.device), (160, 160, 160, 160)),
-        #     )
-        return torch.stack(
-            [
-                torch.tensor(self.img[idx][self.channelIdx]),
-                torch.tensor(self.depth[idx][self.channelIdx]),
-            ],
-            dim=0,
-        ).to(self.device)
+        if self.padding:
+            return F.pad(
+                torch.cat(
+                    [
+                        torch.tensor(self.img[idx]),
+                        torch.tensor(self.depth[idx][0]).unsqueeze(0),
+                    ],
+                    dim=0,
+                ).to(self.device)
+            )
+        else:
+            return torch.cat(
+                [
+                    torch.tensor(self.img[idx]),
+                    torch.tensor(self.depth[idx][0]).unsqueeze(0),
+                ],
+                dim=0,
+            ).to(self.device)
