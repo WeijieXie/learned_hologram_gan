@@ -2,7 +2,16 @@ import torch
 from torch import nn
 from torch.nn import functional as F
 
+import itertools
+
 from .utilities import try_gpu
+from .bandlimited_angular_spectrum_approach import (
+    bandLimitedAngularSpectrumMethod_for_single_fixed_distance as BLASM_v3,
+)
+
+# BLASM_v1 denotes the class in optics.py,
+# BLASM_v2 denotes the parent class bandLimitedAngularSpectrumMethod in bandlimited_angular_spectrum_approach.py,
+# BLASM_v3 denotes the child class bandLimitedAngularSpectrumMethod_for_single_fixed_distance in bandlimited_angular_spectrum_approach.py
 
 
 class ResidualBlock(nn.Module):
@@ -34,9 +43,48 @@ class ResidualBlock(nn.Module):
         return F.relu(Y)
 
 
-class ResNet(nn.Module):
+class ResNet_POH(nn.Module):
+    def __init__(self, output_channels=3):
+        super(ResNet_POH, self).__init__()
+        self.output_channels = output_channels
+        self.net = nn.Sequential(
+            self.part_1(),  # conv
+            self.part_2(),  # residual blocks
+            self.part_3(),  # global pooling and dense layer
+        )
+
+    def part_1(self):
+        return nn.Sequential(
+            nn.LazyConv2d(64, kernel_size=7, stride=1, padding=3),
+            nn.LazyBatchNorm2d(),
+            nn.ReLU(),  # remove pooling layer to keep the same shape
+        )
+
+    def part_2(self):
+        return nn.Sequential(
+            ResidualBlock(64),
+            ResidualBlock(64),
+            ResidualBlock(128, use_1x1conv=True, strides=1),
+            ResidualBlock(128),
+            ResidualBlock(256, use_1x1conv=True, strides=1),
+            ResidualBlock(256),
+            ResidualBlock(512, use_1x1conv=True, strides=1),
+            ResidualBlock(512),
+        )
+
+    def part_3(self):
+        return nn.Sequential(
+            nn.LazyConv2d(out_channels=self.output_channels, kernel_size=1),
+            nn.Sigmoid(),
+        )
+
+    def forward(self, X):
+        return 2 * torch.pi * self.net(X)
+
+
+class ResNet_FashionMnist(nn.Module):
     def __init__(self, shape):
-        super(ResNet, self).__init__()
+        super(ResNet_FashionMnist, self).__init__()
         self.input_shape = shape
         self.net = nn.Sequential(
             self.part_1(),  # conv and pooling
@@ -147,87 +195,170 @@ class ResNet(nn.Module):
 
 
 class UNet(nn.Module):
-    def __init__(self, in_channels, out_channels):
+    def __init__(self, output_channels=6):
         super(UNet, self).__init__()
-        self.encoder = nn.Sequential(
-            self.conv_block(in_channels, 64),
-            self.conv_block(64, 128),
-            self.conv_block(128, 256),
-            self.conv_block(256, 512),
-            self.conv_block(512, 1024),
-        )
-        self.decoder = nn.Sequential(
-            self.conv_block(1024, 512),
-            self.conv_block(512, 256),
-            self.conv_block(256, 128),
-            self.conv_block(128, 64),
-        )
-        self.final_layer = nn.Conv2d(64, out_channels, kernel_size=1)
 
-        self._initialize_weights()
+        self.output_channels = output_channels
+        # Encoder
+        self.encoder1 = nn.Sequential(
+            self.conv_block(64),
+        )
 
-    def conv_block(self, in_channels, out_channels):
-        return nn.Sequential(ResidualBlock(in_channels), ResidualBlock(out_channels))
+        self.encoder2 = nn.Sequential(
+            nn.MaxPool2d(kernel_size=2, stride=2),
+            self.conv_block(128),
+        )
+
+        self.encoder3 = nn.Sequential(
+            nn.MaxPool2d(kernel_size=2, stride=2),
+            self.conv_block(256),
+        )
+
+        self.encoder4 = nn.Sequential(
+            nn.MaxPool2d(kernel_size=2, stride=2),
+            self.conv_block(512),
+        )
+
+        # Bottleneck
+        self.bottleneck = nn.Sequential(
+            nn.MaxPool2d(kernel_size=2, stride=2),
+            self.conv_block(1024),
+            nn.LazyConvTranspose2d(512, kernel_size=2, stride=2),
+        )
+
+        # Decoder
+        self.decoder1 = nn.Sequential(
+            self.conv_block(512),
+            nn.LazyConvTranspose2d(256, kernel_size=2, stride=2),
+        )
+
+        self.decoder2 = nn.Sequential(
+            self.conv_block(256),
+            nn.LazyConvTranspose2d(128, kernel_size=2, stride=2),
+        )
+
+        self.decoder3 = nn.Sequential(
+            self.conv_block(128),
+            nn.LazyConvTranspose2d(64, kernel_size=2, stride=2),
+        )
+
+        self.decoder4 = self.conv_block(64)
+
+        # Final layer
+        self.final_layer = nn.Sequential(
+            nn.LazyConv2d(self.output_channels, kernel_size=1),
+            nn.Sigmoid(),
+        )
+
+    def conv_block(self, out_channels):
+        return nn.Sequential(
+            ResidualBlock(out_channels, use_1x1conv=True),
+            ResidualBlock(out_channels, use_1x1conv=True),
+        )
 
     def forward(self, X):
-        encoder_outputs = []
-        for block in self.encoder:
-            X = block(X)
-            encoder_outputs.append(X)
-        encoder_outputs.pop()
-        for block in self.decoder:
-            X = block(X)
-            if encoder_outputs:
-                X = torch.cat((X, encoder_outputs.pop()), dim=1)
-        return self.final_layer(X)
+        encoder1 = self.encoder1(X)
+        encoder2 = self.encoder2(encoder1)
+        encoder3 = self.encoder3(encoder2)
+        encoder4 = self.encoder4(encoder3)
+
+        bottleneck = self.bottleneck(encoder4)
+
+        decoder1 = self.decoder1(torch.cat((encoder4, bottleneck), dim=1))
+        decoder2 = self.decoder2(torch.cat((encoder3, decoder1), dim=1))
+        decoder3 = self.decoder3(torch.cat((encoder2, decoder2), dim=1))
+        decoder4 = self.decoder4(torch.cat((encoder1, decoder3), dim=1))
+
+        return 2 * torch.pi * self.final_layer(decoder4)
+
+
+class watermelon(nn.Module):
+    def __init__(self, input_shape, propagation_distance, cuda=True):
+        super(watermelon, self).__init__()
+
+        self.input_shape = input_shape
+        self.propagation_distance = propagation_distance
+        self.device = try_gpu() if cuda else torch.device("cpu")
+
+        # propagator
+        self.propagator = BLASM_v3(
+            sample_row_num=192,
+            sample_col_num=192,
+            pixel_pitch=3.74e-6,
+            wave_length=torch.tensor([639e-9, 515e-9, 473e-9]),
+            band_limit=False,
+            cuda=cuda,
+            distance=self.propagation_distance,
+        )
+
+        # a UNet used for generate amp and phs from rgbd input
+        self.part1 = UNet(output_channels=6).to(self.device)
+
+        # a ResNet (without pooling) used for generate phase-only hologram from amp and phs
+        self.part2 = ResNet_POH(output_channels=3).to(self.device)
+
+        # Initialize weights
+        self._initialize_weights()
+
+    def forward(self, X):
+        # print(f"X shape is {X.shape}")
+        amp_phs_z = self.part1(X)
+        # print(f"amp_phs_z shape is {amp_phs_z.shape}")
+        amp_phs_0 = self.propagator.propagate_AP2AP(amp_phs_z)
+        # print(f"amp_phs_0 shape is {amp_phs_0.shape}")
+        phs_0 = self.part2(amp_phs_0)
+        # print(f"phs_0 shape is {phs_0.shape}")
+        intensity = self.propagator.propagate_P2I(phs_0)
+        # print(f"intensity shape is {intensity.shape}")
+        return intensity
 
     def train_model(self, train_iter, test_iter, num_epochs, lr, device):
         model = self
         model.train()
         self.optimizer = torch.optim.Adam(model.parameters(), lr=lr)
         for epoch in range(num_epochs):
-            train_loss, train_accuracy, n = 0.0, 0.0, 0
+            self.train()
+            train_loss, n_train = 0.0, 0
             for X, y in train_iter:
-                X, y = X.to(device), y.to(device)
                 y_hat = model(X)
                 l = self.loss(y_hat, y)
                 self.optimizer.zero_grad()
                 l.backward()
                 self.optimizer.step()
+
                 train_loss += l
-                train_accuracy += (y_hat.argmax(axis=1) == y).sum()
-                n += y.size(0)
-            test_accuracy = self.evaluate_accuracy(test_iter, model)
+                n_train += y.size(0)
+
+            self.eval()
+            test_loss, n_test = 0.0, 0
+            for X, y in test_iter:
+                with torch.no_grad():
+                    y_hat = model(X)
+                test_loss = self.loss(y_hat, y)
+                test_loss += l
+                n_test += y.size(0)
             print(
-                f"epoch {epoch + 1}, "
-                f"train loss {train_loss / n:.4f}, "
-                f"train accuracy {train_accuracy / n:.3f}, "
-                f"test accuracy {test_accuracy:.3f}"
+                f"""
+                epoch {epoch + 1}, 
+                train loss {train_loss / n_train:.4f}, 
+                test loss {test_loss / n_test:.4f}",
+                """
             )
 
-    def evaluate_accuracy(self, data_iter, net):
-        net.eval()
-        acc_sum, n = 0.0, 0
-        for X, y in data_iter:
-            X, y = X.to(self.device), y.to(self.device)
-            with torch.no_grad():
-                y_hat = net(X)
-            acc_sum += (y_hat.argmax(axis=1) == y).sum()
-            n += y.size(0)
-        net.train()
-        return acc_sum / n
-
     def loss(self, y_hat, y):
-        evaluator = None
-        return evaluator(y_hat, y)
+        pass
 
     def _initialize_weights(self):
         # Initialize weights by running a dummy forward pass
-        dummy_input = torch.randn(*self.input_shape)
+        dummy_input = torch.randn(*self.input_shape).to(self.device)
         _ = self.forward(dummy_input)
 
-        for m in self.modules():
+        for m in [self.modules()]:
             if isinstance(m, (nn.Conv2d, nn.LazyConv2d)):
+                nn.init.kaiming_normal_(m.weight, mode="fan_out", nonlinearity="relu")
+                if m.bias is not None:
+                    nn.init.constant_(m.bias, 0)
+            elif isinstance(m, (nn.ConvTranspose2d, nn.LazyConvTranspose2d)):
                 nn.init.kaiming_normal_(m.weight, mode="fan_out", nonlinearity="relu")
                 if m.bias is not None:
                     nn.init.constant_(m.bias, 0)
