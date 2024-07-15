@@ -20,7 +20,7 @@ def test(output_directory="output/test_output", cuda=False):
             y=int(800 * 4094 / 2400),
         )
     )
-    propagator = learnedMethodForHologram.bandlimited_agular_spectrum_approach.bandLimitedAngularSpectrumMethod(
+    propagator = learnedMethodForHologram.bandlimited_angular_spectrum_approach.bandLimitedAngularSpectrumMethod(
         sample_row_num=2400,
         sample_col_num=4094,
         pixel_pitch=3.74e-6,
