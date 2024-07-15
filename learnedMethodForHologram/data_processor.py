@@ -167,10 +167,22 @@ class data_loader(Dataset):
             raise IndexError("Index out of range")
         if self.padding:
             return (
-                F.pad(torch.tensor(self.amp[idx]).to(self.device), (32, 32, 32, 32)),
-                F.pad(torch.tensor(self.phs[idx]).to(self.device), (32, 32, 32, 32)),
-                F.pad(torch.tensor(self.img[idx]).to(self.device), (32, 32, 32, 32)),
-                F.pad(torch.tensor(self.depth[idx]).to(self.device), (32, 32, 32, 32)),
+                # F.pad(torch.tensor(self.amp[idx]).to(self.device), (32, 32, 32, 32)),
+                # F.pad(torch.tensor(self.phs[idx]).to(self.device), (32, 32, 32, 32)),
+                # F.pad(torch.tensor(self.img[idx]).to(self.device), (32, 32, 32, 32)),
+                # F.pad(torch.tensor(self.depth[idx]).to(self.device), (32, 32, 32, 32)),
+                F.pad(
+                    torch.tensor(self.amp[idx]).to(self.device), (160, 160, 160, 160)
+                ),
+                F.pad(
+                    torch.tensor(self.phs[idx]).to(self.device), (160, 160, 160, 160)
+                ),
+                F.pad(
+                    torch.tensor(self.img[idx]).to(self.device), (160, 160, 160, 160)
+                ),
+                F.pad(
+                    torch.tensor(self.depth[idx]).to(self.device), (160, 160, 160, 160)
+                ),
             )
         else:
             return (
@@ -179,3 +191,52 @@ class data_loader(Dataset):
                 torch.tensor(self.img[idx]).to(self.device),
                 torch.tensor(self.depth[idx]).to(self.device),
             )
+
+
+class data_loader_img_depth_single_channel(Dataset):
+    def __init__(
+        self,
+        img_path,
+        depth_path,
+        channelIdx=0,
+        samplesNum=3800,
+        channlesNum=3,
+        height=192,
+        width=192,
+        padding=False,
+        cuda=False,
+    ):
+        self.dataShape = (samplesNum, channlesNum, height, width)
+        self.img = np.memmap(img_path, dtype=np.float32, mode="r", shape=self.dataShape)
+        self.depth = np.memmap(
+            depth_path, dtype=np.float32, mode="r", shape=self.dataShape
+        )
+        self.channelIdx = channelIdx
+        self.padding = padding
+        if cuda:
+            self.device = try_gpu()
+        else:
+            self.device = torch.device("cpu")
+
+        if padding:
+            if height != 192 or width != 192:
+                raise ValueError("Current padding is only supported for 192x192 images")
+
+    def __len__(self):
+        return self.dataShape[0]
+
+    def __getitem__(self, idx):
+        if idx < 0 or idx >= len(self):
+            raise IndexError("Index out of range")
+        # if self.padding:
+        #     return (
+        #         F.pad(torch.tensor(self.img[idx]).to(self.device), (160, 160, 160, 160)),
+        #         F.pad(torch.tensor(self.depth[idx]).to(self.device), (160, 160, 160, 160)),
+        #     )
+        return torch.stack(
+            [
+                torch.tensor(self.img[idx][self.channelIdx]),
+                torch.tensor(self.depth[idx][self.channelIdx]),
+            ],
+            dim=0,
+        ).to(self.device)
