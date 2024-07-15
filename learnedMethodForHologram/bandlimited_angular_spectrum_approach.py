@@ -5,6 +5,7 @@ from . import utilities
 class bandLimitedAngularSpectrumMethod:
     """
     The band limited angular spectrum method for the hologram reconstruction.
+    batch/distances * channels * rows * cols
     It is worth noting that:
     1. the band_limit flag is not implemented yet.
     2. it DOES NOT support batch processing and multi-distance processing at the same time. 
