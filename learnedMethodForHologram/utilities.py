@@ -108,8 +108,8 @@ def cut_center_256_192(tensor_256):
     """
     tensor_192 = tensor_256[
         ...,
-        32 : 223,
-        32 : 223,
+        32:223,
+        32:223,
     ]
     return tensor_192
 
@@ -361,6 +361,24 @@ def gpus_info(gpu_list):
 def current_gpu_info():
     current_device = torch.cuda.current_device()
     print(f"""current gpu : {torch.cuda.get_device_name(current_device)}""")
+
+
+def gpu_timer(operation, repeat=100):
+    total_time = 0
+    # clean the cache on gpu
+    torch.cuda.empty_cache()
+    for _ in range(repeat):
+        torch.cuda.synchronize()
+        start_time = torch.cuda.Event(enable_timing=True)
+        end_time = torch.cuda.Event(enable_timing=True)
+
+        start_time.record()
+        operation()
+        end_time.record()
+
+        torch.cuda.synchronize()
+        total_time += start_time.elapsed_time(end_time)
+    return total_time / repeat
 
 
 def unzip_file(zip_path, dest_path):
