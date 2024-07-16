@@ -326,7 +326,7 @@ class watermelon(nn.Module):
                 l.backward()
                 self.optimizer.step()
 
-                train_loss += l
+                train_loss += l.item()
                 n_train += img_depth.size(0)
 
             self.eval()
@@ -334,8 +334,9 @@ class watermelon(nn.Module):
             for img_depth in test_iter:
                 with torch.no_grad():
                     y_hat = model(img_depth)
-                test_loss = self.loss(y_hat, img_depth[:, :3])
-                test_loss += l
+                l = self.loss(y_hat, img_depth[:, :3])
+
+                test_loss += l.item()
                 n_test += img_depth.size(0)
             print(
                 f"epoch {epoch + 1}, train loss {train_loss / n_train:.4f}, test loss {test_loss / n_test:.4f}"
@@ -352,7 +353,8 @@ class watermelon(nn.Module):
 
         for m in self.modules():
             if isinstance(m, (nn.Conv2d, nn.LazyConv2d)):
-                nn.init.kaiming_normal_(m.weight, mode="fan_out", nonlinearity="relu")
+                # nn.init.kaiming_normal_(m.weight, mode="fan_out", nonlinearity="relu")
+                nn.init.xavier_normal_(m.weight)
                 if m.bias is not None:
                     nn.init.constant_(m.bias, 0)
             elif isinstance(m, (nn.ConvTranspose2d, nn.LazyConvTranspose2d)):
