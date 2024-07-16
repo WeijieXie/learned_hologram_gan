@@ -47,9 +47,9 @@ def test(output_directory="output/test_output", cuda=False):
     # print(max.squeeze())
     # print(min.squeeze())
 
-    learnedMethodForHologram.utilities.multi_depth_plotter(
+    learnedMethodForHologram.utilities.multi_sample_plotter(
         normalized_intensities,
-        distances,
+        titles=None,
         rgb_img=True,
         save_dir=output_directory,
         color=0,

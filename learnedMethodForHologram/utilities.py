@@ -171,51 +171,54 @@ def intensity_calculator(complex_tensor, intensity_norm=True):
 
 
 def multi_channel_plotter(
-    diffraction_tensor,
-    distance,
-    rgb_img=False,
+    tensor_to_plot,
+    title=None,
     save_dir=None,
+    rgb_img=True,
     color=0,  # r = 0, g = 1, b = 2
 ):
     """
-    Plot the diffraction pattern
+    Plot the tensor as an RGB image
 
     Args:
-    diffraction_tensor: 2-D or 3-D tensor, the diffraction pattern tensor
-    distance: float, the distance of the diffraction pattern
+    tensor_to_plot: 2-D or 3-D tensor or 4-D tensor(0 or 1 in the first dimension), the tensor to plot
+    title: string, the title of the plot
+    save_dir: string, the directory to save the plot
     rgb_img: bool, whether to plot the RGB image
-    color: int, the color channel to plot
+    color: int, the color channel to plot, only used when the tensor can be squeeze to 2-D
 
     Returns:
     None
     """
-    diffraction_tensor = diffraction_tensor.squeeze().to("cpu")
+    tensor_to_plot = tensor_to_plot.squeeze().to("cpu")
 
-    if diffraction_tensor.dim() >= 4 or diffraction_tensor.dim() <= 1:
+    if tensor_to_plot.dim() >= 4 or tensor_to_plot.dim() <= 1:
         raise ValueError(
             "Only 2-D and 3-D tensors are supported. The input tensor is {}-D.".format(
-                diffraction_tensor.dim()
+                tensor_to_plot.dim()
             )
         )
 
-    elif diffraction_tensor.dim() == 2:
-        rgb_tensor = torch.empty(
-            3, diffraction_tensor.shape[-2], diffraction_tensor.shape[-1]
-        )
-        rgb_tensor[color] = diffraction_tensor
+    if title is None:
+        title = "title_not_provided"
+
+    elif tensor_to_plot.dim() == 2:
+        rgb_tensor = torch.empty(3, tensor_to_plot.shape[-2], tensor_to_plot.shape[-1])
+        rgb_tensor[color] = tensor_to_plot
         rgb_tensor = rgb_tensor.permute(1, 2, 0)
 
         plt.figure()
         plt.imshow(rgb_tensor)
         plt.axis("off")
-        plt.title("The diffraction pattern at z = {} mm".format(distance))
+        plt.title(title)
         plt.show()
 
         if save_dir.isinstance(str):
             color = ["red", "green", "blue"][color]
             plt.savefig(
                 os.path.join(
-                    save_dir, f"diffraction_at_{round(distance.item(), 5)}_{color}.png"
+                    save_dir,
+                    f"{title}_{color}.png",
                 )
             )
 
@@ -224,62 +227,52 @@ def multi_channel_plotter(
         if save_dir is not None:
             if not os.path.exists(save_dir):
                 os.makedirs(save_dir)
-            rgb_img = diffraction_tensor.permute(1, 2, 0).numpy()
+            rgb_img = tensor_to_plot.permute(1, 2, 0).numpy()
             plt.imsave(
-                os.path.join(save_dir, "diffraction_at_{}.png".format(distance)),
+                os.path.join(save_dir, f"{title}.png"),
                 rgb_img,
             )
         else:
-            if diffraction_tensor.shape[0] != 3:
+            if tensor_to_plot.shape[0] != 3:
                 raise ValueError(
                     "The input tensor should have 3 channels to represent RGB. The input tensor has {} channels.".format(
-                        diffraction_tensor.shape[0]
+                        tensor_to_plot.shape[0]
                     )
                 )
 
             if rgb_img:
                 fig, axs = plt.subplots(1, 4, figsize=(30, 15))
-                axs[3].imshow(diffraction_tensor.permute(1, 2, 0))
+                axs[3].imshow(tensor_to_plot.permute(1, 2, 0))
                 axs[3].axis("off")
-                axs[3].set_title(
-                    "The diffraction pattern at z = {} mm".format(
-                        round(distance.item(), 3)
-                    )
-                )
+                axs[3].set_title(title)
             else:
                 fig, axs = plt.subplots(1, 3, figsize=(30, 15))
 
             for i in range(3):
                 rgb_tensor = torch.zeros(
-                    3, diffraction_tensor.shape[-2], diffraction_tensor.shape[-1]
+                    3, tensor_to_plot.shape[-2], tensor_to_plot.shape[-1]
                 )
-                rgb_tensor[i] = diffraction_tensor[i]
+                rgb_tensor[i] = tensor_to_plot[i]
                 rgb_tensor = rgb_tensor.permute(1, 2, 0)
                 axs[i].imshow(rgb_tensor)
                 axs[i].axis("off")
                 # keep 3 decimal places
-                axs[i].set_title(
-                    "The diffraction pattern at z = {}. mm".format(
-                        round(distance.item(), 3)
-                    )
-                )
+                axs[i].set_title(title)
         plt.show()
 
 
-def multi_depth_plotter(
-    diffraction_tensor,
-    distances,
-    rgb_img=False,
+def multi_sample_plotter(
+    tensor_to_plot,
+    titles=None,
+    rgb_img=True,
     save_dir=None,
     color=0,  # r = 0, g = 1, b = 2
 ):
-    if save_dir is not None:
-        distances = range(len(distances))
-    diffraction_tensor.to("cpu")
-    for i in range(diffraction_tensor.shape[-4]):
-        multi_channel_plotter(
-            diffraction_tensor[i], distances[i], rgb_img, save_dir, color
-        )
+    if titles is None:
+        titles = range(len(tensor_to_plot))
+    tensor_to_plot.to("cpu")
+    for i in range(tensor_to_plot.shape[-4]):
+        multi_channel_plotter(tensor_to_plot[i], titles[i], save_dir, rgb_img, color)
 
 
 def generate_custom_frequency_mask(
