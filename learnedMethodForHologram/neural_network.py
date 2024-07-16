@@ -312,31 +312,31 @@ class watermelon(nn.Module):
         # print(f"intensity shape is {intensity.shape}")
         return intensity
 
-    def train_model(self, train_iter, test_iter, num_epochs, lr, device):
+    def train_model(self, train_iter, test_iter, num_epochs, lr):
         model = self
         model.train()
         self.optimizer = torch.optim.Adam(model.parameters(), lr=lr)
         for epoch in range(num_epochs):
-            self.train()
+            model.train()
             train_loss, n_train = 0.0, 0
-            for X, y in train_iter:
-                y_hat = model(X)
-                l = self.loss(y_hat, y)
+            for img_depth in train_iter:
+                y_hat = model(img_depth)
+                l = self.loss(y_hat, img_depth[:, :3])
                 self.optimizer.zero_grad()
                 l.backward()
                 self.optimizer.step()
 
                 train_loss += l
-                n_train += y.size(0)
+                n_train += img_depth.size(0)
 
             self.eval()
             test_loss, n_test = 0.0, 0
-            for X, y in test_iter:
+            for img_depth in test_iter:
                 with torch.no_grad():
-                    y_hat = model(X)
-                test_loss = self.loss(y_hat, y)
+                    y_hat = model(img_depth)
+                test_loss = self.loss(y_hat, img_depth[:, :3])
                 test_loss += l
-                n_test += y.size(0)
+                n_test += img_depth.size(0)
             print(
                 f"""
                 epoch {epoch + 1}, 
@@ -346,14 +346,15 @@ class watermelon(nn.Module):
             )
 
     def loss(self, y_hat, y):
-        pass
+        loss = nn.MSELoss()
+        return loss(y_hat, y)
 
     def _initialize_weights(self):
         # Initialize weights by running a dummy forward pass
         dummy_input = torch.randn(*self.input_shape).to(self.device)
         _ = self.forward(dummy_input)
 
-        for m in [self.modules()]:
+        for m in self.modules():
             if isinstance(m, (nn.Conv2d, nn.LazyConv2d)):
                 nn.init.kaiming_normal_(m.weight, mode="fan_out", nonlinearity="relu")
                 if m.bias is not None:
