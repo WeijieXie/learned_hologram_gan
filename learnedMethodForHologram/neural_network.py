@@ -338,11 +338,7 @@ class watermelon(nn.Module):
                 test_loss += l
                 n_test += img_depth.size(0)
             print(
-                f"""
-                epoch {epoch + 1}, 
-                train loss {train_loss / n_train:.4f}, 
-                test loss {test_loss / n_test:.4f}",
-                """
+                f"epoch {epoch + 1}, train loss {train_loss / n_train:.4f}, test loss {test_loss / n_test:.4f}"
             )
 
     def loss(self, y_hat, y):
