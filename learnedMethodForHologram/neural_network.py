@@ -253,7 +253,7 @@ class UNet(nn.Module):
     def conv_block(self, out_channels):
         return nn.Sequential(
             ResidualBlock(out_channels, use_1x1conv=True),
-            ResidualBlock(out_channels, use_1x1conv=True),
+            # ResidualBlock(out_channels, use_1x1conv=True),
         )
 
     def forward(self, X):
