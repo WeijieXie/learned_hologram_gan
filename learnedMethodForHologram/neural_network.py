@@ -79,7 +79,7 @@ class ResNet_POH(nn.Module):
         )
 
     def forward(self, X):
-        return 2 * torch.pi * self.net(X)
+        return self.net(X)
 
 
 class ResNet_FashionMnist(nn.Module):
@@ -253,7 +253,7 @@ class UNet(nn.Module):
     def conv_block(self, out_channels):
         return nn.Sequential(
             ResidualBlock(out_channels, use_1x1conv=True),
-            # ResidualBlock(out_channels, use_1x1conv=True),
+            ResidualBlock(out_channels, use_1x1conv=True),
         )
 
     def forward(self, X):
@@ -269,7 +269,17 @@ class UNet(nn.Module):
         decoder3 = self.decoder3(torch.cat((encoder2, decoder2), dim=1))
         decoder4 = self.decoder4(torch.cat((encoder1, decoder3), dim=1))
 
-        return 2 * torch.pi * self.final_layer(decoder4)
+        return self.final_layer(decoder4)
+
+
+class Unet_lightweight(UNet):
+    def __init__(self, output_channels=6):
+        super().__init__(output_channels)
+
+    def conv_block(self, out_channels):
+        return nn.Sequential(
+            ResidualBlock(out_channels, use_1x1conv=True),
+        )
 
 
 class watermelon(nn.Module):
@@ -292,10 +302,10 @@ class watermelon(nn.Module):
         )
 
         # a UNet used for generate amp and phs from rgbd input
-        self.part1 = UNet(output_channels=6).to(self.device)
+        self.part1 = 2 * torch.pi * UNet(output_channels=6).to(self.device)
 
         # a ResNet (without pooling) used for generate phase-only hologram from amp and phs
-        self.part2 = ResNet_POH(output_channels=3).to(self.device)
+        self.part2 = 2 * torch.pi * ResNet_POH(output_channels=3).to(self.device)
 
         # Initialize weights
         self._initialize_weights()
