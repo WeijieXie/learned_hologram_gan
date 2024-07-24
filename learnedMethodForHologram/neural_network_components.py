@@ -2,8 +2,6 @@ import torch
 from torch import nn
 from torch.nn import functional as F
 
-import itertools
-
 from .utilities import try_gpu
 from .bandlimited_angular_spectrum_approach import (
     bandLimitedAngularSpectrumMethod_for_single_fixed_distance as BLASM_v3,
@@ -282,9 +280,15 @@ class Unet_lightweight(UNet):
         )
 
 
-class watermelon(nn.Module):
-    def __init__(self, input_shape, propagation_distance, cuda=True):
-        super(watermelon, self).__init__()
+class watermelon_v1(nn.Module):
+    def __init__(
+        self,
+        input_shape,
+        propagation_distance,
+        lightweight_UNet=False,
+        cuda=True,
+    ):
+        super(watermelon_v1, self).__init__()
 
         self.input_shape = input_shape
         self.propagation_distance = propagation_distance
@@ -302,7 +306,12 @@ class watermelon(nn.Module):
         )
 
         # a UNet used for generate amp and phs from rgbd input
-        self.part1 = 2 * torch.pi * UNet(output_channels=6).to(self.device)
+        if lightweight_UNet:
+            self.part1 = (
+                2 * torch.pi * Unet_lightweight(output_channels=6).to(self.device)
+            )
+        else:
+            self.part1 = 2 * torch.pi * UNet(output_channels=6).to(self.device)
 
         # a ResNet (without pooling) used for generate phase-only hologram from amp and phs
         self.part2 = 2 * torch.pi * ResNet_POH(output_channels=3).to(self.device)
