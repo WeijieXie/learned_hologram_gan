@@ -130,12 +130,20 @@ class bandLimitedAngularSpectrumMethod:
         Returns:
             torch.Tensor: The diffraction limited mask.
         """
-        return utilities.generate_custom_frequency_mask(
+        return utilities.generate_circular_frequency_mask(
             sample_row_num=self.samplingRowNum,
             sample_col_num=self.samplingColNum,
-            x=self.samplingRowNum // 3,
-            y=self.samplingRowNum // 3 * self.samplingColNum // self.samplingRowNum,
+            radius=min(self.samplingRowNum, self.samplingColNum) // 3,
+            # which picks 2/3 frequencies on the frequency domain
         )
+
+        # return utilities.generate_square_frequency_mask(
+        #     sample_row_num=self.samplingRowNum,
+        #     sample_col_num=self.samplingColNum,
+        #     x=self.samplingRowNum // 3,
+        #     y=self.samplingRowNum // 3 * self.samplingColNum // self.samplingRowNum,
+        # )
+
 
     def generate_w_grid(self):
         """
@@ -143,7 +151,7 @@ class bandLimitedAngularSpectrumMethod:
         Working on the cpu.
 
         Returns:
-            torch.Tensor: The grid of w values.
+            torch.Tensor: The grid of w values, which is a 3D tensor.
         """
         squared_u_v_grid = self.freq_x.unsqueeze(1) ** 2 + self.freq_y.unsqueeze(0) ** 2
         w_grid = torch.sqrt(
