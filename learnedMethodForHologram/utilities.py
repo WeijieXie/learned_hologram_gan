@@ -275,7 +275,48 @@ def multi_sample_plotter(
         multi_channel_plotter(tensor_to_plot[i], titles[i], save_dir, rgb_img, color)
 
 
-def generate_custom_frequency_mask(
+def generate_circular_frequency_mask(
+    sample_row_num=192,
+    sample_col_num=192,
+    radius=60,
+    decay_rate=None,
+):
+    """
+    Generate the circular frequency mask where the radius means the radius on the shorter edge,
+    the function will keep the radius on the longer edge to the longer edge the same portion as the radius on the shorter edge to the shorter edge
+
+    Args:
+    sample_row_num: int, the number of rows of the mask
+    sample_col_num: int, the number of columns of the mask
+    radius: float, the radius of the circular mask
+    decay_rate: float, the decay rate outside the circular mask
+
+    Returns:
+    mask: 2-D tensor, the circular frequency mask
+    """
+
+    shorter_edge = min(sample_row_num, sample_col_num)
+    if radius > shorter_edge / 2:
+        raise ValueError(
+            f"The radius {radius} is larger than the half of the sample size {shorter_edge/2}"
+        )
+
+    # Create a grid of (u, v) coordinates
+    u = torch.fft.fftfreq(sample_row_num).unsqueeze(-1)
+    v = torch.fft.fftfreq(sample_col_num).unsqueeze(0)
+    D = torch.sqrt(u**2 + v**2) * shorter_edge
+
+    mask = torch.ones_like(D)
+    if decay_rate is not None:
+        # Create the circular low-pass filter with exponential decay around the radius
+        mask[D > radius] = torch.exp(-decay_rate * (D[D > radius] - radius))
+    else:
+        mask[D > radius] = 0.0
+
+    return mask
+
+
+def generate_square_frequency_mask(
     sample_row_num=192,
     sample_col_num=192,
     x=0,
