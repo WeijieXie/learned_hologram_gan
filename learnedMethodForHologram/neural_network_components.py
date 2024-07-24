@@ -41,9 +41,21 @@ class ResidualBlock(nn.Module):
         return F.relu(Y)
 
 
-class ResNet_POH(nn.Module):
+class FourierBlock(nn.Module):
+    def __init__(self, num_channels):
+        super(FourierBlock, self).__init__()
+        self.spatial_conv = ResidualBlock(num_channels, use_1x1conv=True)
+        self.fourier_conv = ResidualBlock(num_channels, use_1x1conv=True)
+
+    def forward(self, X):
+        spatial_part = self.spatial_conv(X)
+        fourier_part = torch.fft.ifft(self.fourier_conv(torch.fft.fft(X)))
+        return spatial_part + fourier_part
+
+
+class ResNet(nn.Module):
     def __init__(self, output_channels=3):
-        super(ResNet_POH, self).__init__()
+        super(ResNet, self).__init__()
         self.output_channels = output_channels
         self.net = nn.Sequential(
             self.part_1(),  # conv
@@ -78,6 +90,127 @@ class ResNet_POH(nn.Module):
 
     def forward(self, X):
         return self.net(X)
+
+
+class ResNet_POH(ResNet):
+    def __init__(self, output_channels=3):
+        super(ResNet_POH, self).__init__(output_channels)
+
+    def forward(self, X):
+        return 2 * torch.pi * super(ResNet_POH, self).forward(X)
+
+
+class UNet(nn.Module):
+    def __init__(self, output_channels=6):
+        super(UNet, self).__init__()
+
+        self.output_channels = output_channels
+        # Encoder
+        self.encoder1 = nn.Sequential(
+            self.conv_block(64),
+        )
+
+        self.encoder2 = nn.Sequential(
+            nn.MaxPool2d(kernel_size=2, stride=2),
+            self.conv_block(128),
+        )
+
+        self.encoder3 = nn.Sequential(
+            nn.MaxPool2d(kernel_size=2, stride=2),
+            self.conv_block(256),
+        )
+
+        self.encoder4 = nn.Sequential(
+            nn.MaxPool2d(kernel_size=2, stride=2),
+            self.conv_block(512),
+        )
+
+        # Bottleneck
+        self.bottleneck = nn.Sequential(
+            nn.MaxPool2d(kernel_size=2, stride=2),
+            self.conv_block(1024),
+            nn.LazyConvTranspose2d(512, kernel_size=2, stride=2),
+        )
+
+        # Decoder
+        self.decoder1 = nn.Sequential(
+            self.conv_block(512),
+            nn.LazyConvTranspose2d(256, kernel_size=2, stride=2),
+        )
+
+        self.decoder2 = nn.Sequential(
+            self.conv_block(256),
+            nn.LazyConvTranspose2d(128, kernel_size=2, stride=2),
+        )
+
+        self.decoder3 = nn.Sequential(
+            self.conv_block(128),
+            nn.LazyConvTranspose2d(64, kernel_size=2, stride=2),
+        )
+
+        self.decoder4 = self.conv_block(64)
+
+        # Final layer
+        self.final_layer = nn.Sequential(
+            nn.LazyConv2d(self.output_channels, kernel_size=1),
+            nn.Sigmoid(),  # to ensure the output is in the range of [0, 1]
+        )
+
+    def conv_block(self, out_channels):
+        return nn.Sequential(
+            ResidualBlock(out_channels, use_1x1conv=True),
+        )
+
+    def forward(self, X):
+        encoder1 = self.encoder1(X)
+        encoder2 = self.encoder2(encoder1)
+        encoder3 = self.encoder3(encoder2)
+        encoder4 = self.encoder4(encoder3)
+
+        bottleneck = self.bottleneck(encoder4)
+
+        decoder1 = self.decoder1(torch.cat((encoder4, bottleneck), dim=1))
+        decoder2 = self.decoder2(torch.cat((encoder3, decoder1), dim=1))
+        decoder3 = self.decoder3(torch.cat((encoder2, decoder2), dim=1))
+        decoder4 = self.decoder4(torch.cat((encoder1, decoder3), dim=1))
+
+        return self.final_layer(decoder4)
+
+
+class UNet_imgDepth2AP(UNet):
+    def __init__(self, output_channels=6):
+        super(UNet_imgDepth2AP, self).__init__(output_channels)
+
+    def forward(self, X):
+        return 2 * torch.pi * super(UNet_imgDepth2AP, self).forward(X)
+
+
+class UNet_imgDepth2AP_heavyweight(UNet_imgDepth2AP):
+    def __init__(self, output_channels=6):
+        super(UNet_imgDepth2AP_heavyweight, self).__init__(output_channels)
+
+    def conv_block(self, out_channels):
+        return nn.Sequential(
+            ResidualBlock(out_channels, use_1x1conv=True),
+            ResidualBlock(out_channels, use_1x1conv=True),
+        )
+
+
+class Unet_Fourier(UNet):
+    def __init__(self, output_channels=6):
+        super().__init__(output_channels)
+
+    def conv_block(self, out_channels):
+        return FourierBlock(out_channels)
+
+
+#####################################################
+
+
+#####################################################
+
+
+#####################################################
 
 
 class ResNet_FashionMnist(nn.Module):
@@ -190,200 +323,3 @@ class ResNet_FashionMnist(nn.Module):
     def loss(self, y_hat, y):
         evaluator = nn.CrossEntropyLoss()
         return evaluator(y_hat, y)
-
-
-class UNet(nn.Module):
-    def __init__(self, output_channels=6):
-        super(UNet, self).__init__()
-
-        self.output_channels = output_channels
-        # Encoder
-        self.encoder1 = nn.Sequential(
-            self.conv_block(64),
-        )
-
-        self.encoder2 = nn.Sequential(
-            nn.MaxPool2d(kernel_size=2, stride=2),
-            self.conv_block(128),
-        )
-
-        self.encoder3 = nn.Sequential(
-            nn.MaxPool2d(kernel_size=2, stride=2),
-            self.conv_block(256),
-        )
-
-        self.encoder4 = nn.Sequential(
-            nn.MaxPool2d(kernel_size=2, stride=2),
-            self.conv_block(512),
-        )
-
-        # Bottleneck
-        self.bottleneck = nn.Sequential(
-            nn.MaxPool2d(kernel_size=2, stride=2),
-            self.conv_block(1024),
-            nn.LazyConvTranspose2d(512, kernel_size=2, stride=2),
-        )
-
-        # Decoder
-        self.decoder1 = nn.Sequential(
-            self.conv_block(512),
-            nn.LazyConvTranspose2d(256, kernel_size=2, stride=2),
-        )
-
-        self.decoder2 = nn.Sequential(
-            self.conv_block(256),
-            nn.LazyConvTranspose2d(128, kernel_size=2, stride=2),
-        )
-
-        self.decoder3 = nn.Sequential(
-            self.conv_block(128),
-            nn.LazyConvTranspose2d(64, kernel_size=2, stride=2),
-        )
-
-        self.decoder4 = self.conv_block(64)
-
-        # Final layer
-        self.final_layer = nn.Sequential(
-            nn.LazyConv2d(self.output_channels, kernel_size=1),
-            nn.Sigmoid(),
-        )
-
-    def conv_block(self, out_channels):
-        return nn.Sequential(
-            ResidualBlock(out_channels, use_1x1conv=True),
-            ResidualBlock(out_channels, use_1x1conv=True),
-        )
-
-    def forward(self, X):
-        encoder1 = self.encoder1(X)
-        encoder2 = self.encoder2(encoder1)
-        encoder3 = self.encoder3(encoder2)
-        encoder4 = self.encoder4(encoder3)
-
-        bottleneck = self.bottleneck(encoder4)
-
-        decoder1 = self.decoder1(torch.cat((encoder4, bottleneck), dim=1))
-        decoder2 = self.decoder2(torch.cat((encoder3, decoder1), dim=1))
-        decoder3 = self.decoder3(torch.cat((encoder2, decoder2), dim=1))
-        decoder4 = self.decoder4(torch.cat((encoder1, decoder3), dim=1))
-
-        return self.final_layer(decoder4)
-
-
-class Unet_lightweight(UNet):
-    def __init__(self, output_channels=6):
-        super().__init__(output_channels)
-
-    def conv_block(self, out_channels):
-        return nn.Sequential(
-            ResidualBlock(out_channels, use_1x1conv=True),
-        )
-
-
-class watermelon_v1(nn.Module):
-    def __init__(
-        self,
-        input_shape,
-        propagation_distance,
-        lightweight_UNet=False,
-        cuda=True,
-    ):
-        super(watermelon_v1, self).__init__()
-
-        self.input_shape = input_shape
-        self.propagation_distance = propagation_distance
-        self.device = try_gpu() if cuda else torch.device("cpu")
-
-        # propagator
-        self.propagator = BLASM_v3(
-            sample_row_num=192,
-            sample_col_num=192,
-            pixel_pitch=3.74e-6,
-            wave_length=torch.tensor([639e-9, 515e-9, 473e-9]),
-            band_limit=False,
-            cuda=cuda,
-            distance=self.propagation_distance,
-        )
-
-        # a UNet used for generate amp and phs from rgbd input
-        if lightweight_UNet:
-            self.part1 = (
-                2 * torch.pi * Unet_lightweight(output_channels=6).to(self.device)
-            )
-        else:
-            self.part1 = 2 * torch.pi * UNet(output_channels=6).to(self.device)
-
-        # a ResNet (without pooling) used for generate phase-only hologram from amp and phs
-        self.part2 = 2 * torch.pi * ResNet_POH(output_channels=3).to(self.device)
-
-        # Initialize weights
-        self._initialize_weights()
-
-    def forward(self, X):
-        # print(f"X shape is {X.shape}")
-        amp_phs_z = self.part1(X)
-        # print(f"amp_phs_z shape is {amp_phs_z.shape}")
-        amp_phs_0 = self.propagator.propagate_AP2AP(amp_phs_z)
-        # print(f"amp_phs_0 shape is {amp_phs_0.shape}")
-        phs_0 = self.part2(amp_phs_0)
-        # print(f"phs_0 shape is {phs_0.shape}")
-        intensity = self.propagator.propagate_P2I(phs_0)
-        # print(f"intensity shape is {intensity.shape}")
-        return intensity
-
-    def train_model(self, train_iter, test_iter, num_epochs, lr):
-        model = self
-        model.train()
-        self.optimizer = torch.optim.Adam(model.parameters(), lr=lr)
-        for epoch in range(num_epochs):
-            model.train()
-            train_loss, n_train = 0.0, 0
-            for img_depth in train_iter:
-                y_hat = model(img_depth)
-                l = self.loss(y_hat, img_depth[:, :3])
-                self.optimizer.zero_grad()
-                l.backward()
-                self.optimizer.step()
-
-                train_loss += l.item()
-                n_train += img_depth.size(0)
-
-            self.eval()
-            test_loss, n_test = 0.0, 0
-            for img_depth in test_iter:
-                with torch.no_grad():
-                    y_hat = model(img_depth)
-                l = self.loss(y_hat, img_depth[:, :3])
-
-                test_loss += l.item()
-                n_test += img_depth.size(0)
-            print(
-                f"epoch {epoch + 1}, train loss {train_loss / n_train:.4f}, test loss {test_loss / n_test:.4f}"
-            )
-
-    def loss(self, y_hat, y):
-        loss = nn.MSELoss()
-        return loss(y_hat, y)
-
-    def _initialize_weights(self):
-        # Initialize weights by running a dummy forward pass
-        dummy_input = torch.randn(*self.input_shape).to(self.device)
-        _ = self.forward(dummy_input)
-
-        for m in self.modules():
-            if isinstance(m, (nn.Conv2d, nn.LazyConv2d)):
-                # nn.init.kaiming_normal_(m.weight, mode="fan_out", nonlinearity="relu")
-                nn.init.xavier_normal_(m.weight)
-                if m.bias is not None:
-                    nn.init.constant_(m.bias, 0)
-            elif isinstance(m, (nn.ConvTranspose2d, nn.LazyConvTranspose2d)):
-                nn.init.kaiming_normal_(m.weight, mode="fan_out", nonlinearity="relu")
-                if m.bias is not None:
-                    nn.init.constant_(m.bias, 0)
-            elif isinstance(m, (nn.BatchNorm2d, nn.LazyBatchNorm2d)):
-                nn.init.constant_(m.weight, 1)
-                nn.init.constant_(m.bias, 0)
-            elif isinstance(m, (nn.Linear, nn.LazyLinear)):
-                nn.init.xavier_normal_(m.weight)
-                if m.bias is not None:
-                    nn.init.constant_(m.bias, 0)
