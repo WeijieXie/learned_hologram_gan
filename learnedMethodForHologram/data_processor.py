@@ -193,11 +193,11 @@ class data_loader(Dataset):
             )
 
 
-class data_loader_img_depth(Dataset):
+class data_loader_A_B(Dataset):
     def __init__(
         self,
-        img_path,
-        depth_path,
+        path_A,
+        path_B,
         samplesNum=3800,
         channlesNum=3,
         height=192,
@@ -206,10 +206,8 @@ class data_loader_img_depth(Dataset):
         cuda=False,
     ):
         self.dataShape = (samplesNum, channlesNum, height, width)
-        self.img = np.memmap(img_path, dtype=np.float32, mode="r", shape=self.dataShape)
-        self.depth = np.memmap(
-            depth_path, dtype=np.float32, mode="r", shape=self.dataShape
-        )
+        self.img = np.memmap(path_A, dtype=np.float32, mode="r", shape=self.dataShape)
+        self.depth = np.memmap(path_B, dtype=np.float32, mode="r", shape=self.dataShape)
         self.padding = padding
         if cuda:
             self.device = try_gpu()
@@ -244,3 +242,44 @@ class data_loader_img_depth(Dataset):
                 ],
                 dim=0,
             ).to(self.device)
+
+
+class data_loader_for_percepetual_loss(Dataset):
+    def __init__(
+        self,
+        path_img,
+        path_phs,
+        path_depth,
+        samplesNum=3800,
+        channlesNum=3,
+        height=192,
+        width=192,
+        cuda=False,
+    ):
+        self.dataShape = (samplesNum, channlesNum, height, width)
+        self.img = np.memmap(path_img, dtype=np.float32, mode="r", shape=self.dataShape)
+        self.phs = np.memmap(path_phs, dtype=np.float32, mode="r", shape=self.dataShape)
+        self.depth = np.memmap(
+            path_depth, dtype=np.float32, mode="r", shape=self.dataShape
+        )
+
+        if cuda:
+            self.device = try_gpu()
+        else:
+            self.device = torch.device("cpu")
+
+    def __len__(self):
+        return self.dataShape[0]
+
+    def __getitem__(self, idx):
+        if idx < 0 or idx >= len(self):
+            raise IndexError("Index out of range")
+
+        return torch.cat(
+            [
+                torch.sqrt(torch.tensor(self.img[idx])),
+                torch.tensor(self.phs[idx]),
+                torch.tensor(self.depth[idx][0]).unsqueeze(0),
+            ],
+            dim=0,
+        ).to(self.device)
