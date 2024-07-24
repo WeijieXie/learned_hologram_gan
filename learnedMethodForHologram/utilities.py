@@ -214,7 +214,7 @@ def multi_channel_plotter(
         plt.title(title)
         plt.show()
 
-        if save_dir.isinstance(str):
+        if save_dir is not None:
             color = ["red", "green", "blue"][color]
             plt.savefig(
                 os.path.join(
