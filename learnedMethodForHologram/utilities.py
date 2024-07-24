@@ -199,10 +199,11 @@ def multi_channel_plotter(
             )
         )
 
-    if title is None:
-        title = "title_not_provided"
-
     elif tensor_to_plot.dim() == 2:
+
+        if title is None:
+            title = "title_not_provided"
+
         rgb_tensor = torch.empty(3, tensor_to_plot.shape[-2], tensor_to_plot.shape[-1])
         rgb_tensor[color] = tensor_to_plot
         rgb_tensor = rgb_tensor.permute(1, 2, 0)
@@ -256,7 +257,6 @@ def multi_channel_plotter(
                 rgb_tensor = rgb_tensor.permute(1, 2, 0)
                 axs[i].imshow(rgb_tensor)
                 axs[i].axis("off")
-                # keep 3 decimal places
                 axs[i].set_title(title)
         plt.show()
 
