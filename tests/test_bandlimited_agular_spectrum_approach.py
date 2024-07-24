@@ -13,11 +13,10 @@ def test(output_directory="output/test_output", cuda=False):
     amplitude_tensor = torch.ones_like(phase_tensor).to(device)
     distances = torch.linspace(-1e-3, 2.5e-3, 4).to(device)
     spacial_frequency_filter = (
-        learnedMethodForHologram.utilities.generate_custom_frequency_mask(
+        learnedMethodForHologram.utilities.generate_circular_frequency_mask(
             sample_row_num=2400,
             sample_col_num=4094,
-            x=800,
-            y=int(800 * 4094 / 2400),
+            radius=800,
         )
     )
     propagator = learnedMethodForHologram.bandlimited_angular_spectrum_approach.bandLimitedAngularSpectrumMethod(
