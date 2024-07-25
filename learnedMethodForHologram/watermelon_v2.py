@@ -135,10 +135,10 @@ class watermelon_v2(nn.Module):
                         (torch.sqrt(img_depth[:, :3]), y_hat[:, 3:]), dim=1
                     )
 
-                    l = self.loss(y_hat[:, :3], img_depth[:, :3])
-                    +hyperparameter_lambda * self.loss(
-                        self.perceptual_model(perceptual_model_input), img_depth[:, 3:]
-                    )
+                l = self.loss(y_hat[:, :3], img_depth[:, :3])
+                +hyperparameter_lambda * self.loss(
+                    self.perceptual_model(perceptual_model_input), img_depth[:, 3:]
+                )
 
                 test_loss += l.item()
                 n_test += img_depth.size(0)
