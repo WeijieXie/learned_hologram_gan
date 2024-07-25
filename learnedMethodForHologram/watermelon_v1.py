@@ -21,7 +21,7 @@ class watermelon_v1(nn.Module):
     def __init__(
         self,
         input_shape,
-        propagation_distance,
+        propagation_distance = torch.tensor([1e-3]),
         heavyweight_UNet=True,
         cuda=True,
     ):
