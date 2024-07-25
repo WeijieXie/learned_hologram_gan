@@ -196,6 +196,25 @@ class UNet_imgDepth2AP_heavyweight_v1(UNet_imgDepth2AP_v1):
         )
 
 
+class UNet_imgDepth2AP(UNet):
+    def __init__(self, output_channels=6):
+        super(UNet_imgDepth2AP, self).__init__(output_channels)
+
+    def forward(self, X):
+        return 2 * torch.pi * super(UNet_imgDepth2AP, self).forward(torch.sqrt(X))
+
+
+class UNet_imgDepth2AP_heavyweight(UNet_imgDepth2AP):
+    def __init__(self, output_channels=6):
+        super(UNet_imgDepth2AP_heavyweight, self).__init__(output_channels)
+
+    def conv_block(self, out_channels):
+        return nn.Sequential(
+            ResidualBlock(out_channels, use_1x1conv=True),
+            ResidualBlock(out_channels, use_1x1conv=True),
+        )
+
+
 class Unet_Fourier(UNet):
     def __init__(self, output_channels=6):
         super().__init__(output_channels)
