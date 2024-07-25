@@ -25,6 +25,7 @@ class watermelon_v2(nn.Module):
         input_shape,
         perceptual_model_path,
         propagation_distance=torch.tensor([1e-3]),
+        hyperparameter_lambda=1.0,
         heavyweight_UNet=False,  # use UNet_imgDepth2AP by default other than UNet_imgDepth2AP_heavyweight in watermelon_v1
         cuda=True,
     ):
@@ -37,16 +38,17 @@ class watermelon_v2(nn.Module):
         self.perceptual_model = perceptual_loss(
             input_shape=(
                 1,
-                6,
+                6,  # 3 channels of amplitude + 3 channels of phase
                 input_shape[-2],
                 input_shape[-1],
-            ),  # the amplitude and phase
+            ),
             cuda=cuda,
         )
         self.perceptual_model.load_state_dict(torch.load(perceptual_model_path))
         self.perceptual_model.eval()
-        self.perceptual_model._requires_grad(False)
+        self.perceptual_model.requires_grad_(False)
 
+        self.hyperparameter_lambda = hyperparameter_lambda
         self.device = try_gpu() if cuda else torch.device("cpu")
 
         # propagator
@@ -93,7 +95,8 @@ class watermelon_v2(nn.Module):
         for epoch in range(num_epochs):
             model.train()
             train_loss, n_train = 0.0, 0
-            for img_depth in train_iter: # 4 channels = 3 channels of intensity + 1 channel of depth
+            # 4 channels = 3 channels of intensity + 1 channel of depth
+            for img_depth in train_iter:
 
                 y_hat = model(
                     img_depth
@@ -104,7 +107,7 @@ class watermelon_v2(nn.Module):
                 )  # 6 channels = 3 channels of amplitude + 3 channels of phase
 
                 l = self.loss(y_hat[:, :3], img_depth[:, :3])
-                +self.loss(
+                +self.hyperparameter_lambda * self.loss(
                     self.perceptual_model(perceptual_model_input), img_depth[:, 3:]
                 )
 
@@ -126,7 +129,7 @@ class watermelon_v2(nn.Module):
                     )
 
                     l = self.loss(y_hat[:, :3], img_depth[:, :3])
-                    +self.loss(
+                    +self.hyperparameter_lambda * self.loss(
                         self.perceptual_model(perceptual_model_input), img_depth[:, 3:]
                     )
 
