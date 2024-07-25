@@ -105,7 +105,7 @@ class watermelon_v1(nn.Module):
     def _initialize_weights(self):
         # Initialize weights by running a dummy forward pass
         dummy_input = torch.randn(*self.input_shape).to(self.device)
-        _ = self.forward(dummy_input)
+        _ = self.forward(torch.abs(dummy_input))
 
         for m in self.modules():
             if isinstance(m, (nn.Conv2d, nn.LazyConv2d)):
