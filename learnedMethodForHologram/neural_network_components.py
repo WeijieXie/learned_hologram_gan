@@ -201,7 +201,8 @@ class UNet_imgDepth2AP(UNet):
         super(UNet_imgDepth2AP, self).__init__(output_channels)
 
     def forward(self, X):
-        return 2 * torch.pi * super(UNet_imgDepth2AP, self).forward(torch.sqrt(X))
+        X[:, :3] = torch.sqrt(X[:, :3])
+        return 2 * torch.pi * super(UNet_imgDepth2AP, self).forward(X)
 
 
 class UNet_imgDepth2AP_heavyweight(UNet_imgDepth2AP):
