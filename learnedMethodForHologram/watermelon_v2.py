@@ -83,21 +83,25 @@ class watermelon_v2(nn.Module):
         # print(f"phs_0 shape is {phs_0.shape}")
         intensity_phs = self.propagator.propagate_P2IP(phs_0)
         # print(f"intensity_phs shape is {intensity_phs.shape}")
-        return intensity_phs  
+        return intensity_phs
         # 6 channels = 3 channels of intensity + 3 channels of phase
 
     def train_model(
         self,
         train_iter,
         test_iter,
-        num_epochs,
-        lr,
         hyperparameter_lambda=1.0,
+        num_epochs=20,
+        lr=5e-3,
+        milestones=[7, 14],
+        hyperparameter_gamma=0.1,
     ):
         model = self
         model.train()
         self.optimizer = torch.optim.Adam(model.parameters(), lr=lr)
-        self.scheduler = MultiStepLR(self.optimizer, milestones=[15, 30], gamma=0.2)
+        self.scheduler = MultiStepLR(
+            self.optimizer, milestones=milestones, gamma=hyperparameter_gamma
+        )
         for epoch in range(num_epochs):
             model.train()
             train_loss, n_train = 0.0, 0
@@ -136,11 +140,11 @@ class watermelon_v2(nn.Module):
                     )
 
                     l = self.loss(
-                       y_hat[:, :3], img_depth[:, :3]
+                        y_hat[:, :3], img_depth[:, :3]
                     ) + hyperparameter_lambda * self.loss(
                         self.perceptual_model(perceptual_model_input), img_depth[:, 3:]
                     )
-    
+
                 test_loss += l.item()
                 n_test += img_depth.size(0)
 
