@@ -1,5 +1,6 @@
 import torch
 from torch import nn
+from torch.optim.lr_scheduler import MultiStepLR
 
 from .utilities import try_gpu
 from .bandlimited_angular_spectrum_approach import (
@@ -25,7 +26,6 @@ class watermelon_v2(nn.Module):
         input_shape,
         perceptual_model_path,
         propagation_distance=torch.tensor([1e-3]),
-        hyperparameter_lambda=1.0,
         heavyweight_UNet=False,  # use UNet_imgDepth2AP by default other than UNet_imgDepth2AP_heavyweight in watermelon_v1
         cuda=True,
     ):
@@ -48,7 +48,6 @@ class watermelon_v2(nn.Module):
         self.perceptual_model.eval()
         self.perceptual_model.requires_grad_(False)
 
-        self.hyperparameter_lambda = hyperparameter_lambda
         self.device = try_gpu() if cuda else torch.device("cpu")
 
         # propagator
@@ -88,10 +87,18 @@ class watermelon_v2(nn.Module):
             intensity_phs  # 6 channels = 3 channels of intensity + 3 channels of phase
         )
 
-    def train_model(self, train_iter, test_iter, num_epochs, lr):
+    def train_model(
+        self,
+        train_iter,
+        test_iter,
+        num_epochs,
+        lr,
+        hyperparameter_lambda=1.0,
+    ):
         model = self
         model.train()
         self.optimizer = torch.optim.Adam(model.parameters(), lr=lr)
+        self.scheduler = MultiStepLR(self.optimizer, milestones=[15, 30], gamma=0.2)
         for epoch in range(num_epochs):
             model.train()
             train_loss, n_train = 0.0, 0
@@ -107,7 +114,7 @@ class watermelon_v2(nn.Module):
                 )  # 6 channels = 3 channels of amplitude + 3 channels of phase
 
                 l = self.loss(y_hat[:, :3], img_depth[:, :3])
-                +self.hyperparameter_lambda * self.loss(
+                +hyperparameter_lambda * self.loss(
                     self.perceptual_model(perceptual_model_input), img_depth[:, 3:]
                 )
 
@@ -129,12 +136,15 @@ class watermelon_v2(nn.Module):
                     )
 
                     l = self.loss(y_hat[:, :3], img_depth[:, :3])
-                    +self.hyperparameter_lambda * self.loss(
+                    +hyperparameter_lambda * self.loss(
                         self.perceptual_model(perceptual_model_input), img_depth[:, 3:]
                     )
 
                 test_loss += l.item()
                 n_test += img_depth.size(0)
+
+            self.scheduler.step()
+
             print(
                 f"epoch {epoch + 1}, train loss {train_loss / n_train:.4f}, test loss {test_loss / n_test:.4f}"
             )
