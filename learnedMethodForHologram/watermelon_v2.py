@@ -113,8 +113,9 @@ class watermelon_v2(nn.Module):
                     (torch.sqrt(img_depth[:, :3]), y_hat[:, 3:]), dim=1
                 )  # 6 channels = 3 channels of amplitude + 3 channels of phase
 
-                l = self.loss(y_hat[:, :3], img_depth[:, :3])
-                +hyperparameter_lambda * self.loss(
+                l = self.loss(
+                    y_hat[:, :3], img_depth[:, :3]
+                ) + hyperparameter_lambda * self.loss(
                     self.perceptual_model(perceptual_model_input), img_depth[:, 3:]
                 )
 
@@ -135,8 +136,9 @@ class watermelon_v2(nn.Module):
                         (torch.sqrt(img_depth[:, :3]), y_hat[:, 3:]), dim=1
                     )
 
-                    l = self.loss(y_hat[:, :3], img_depth[:, :3])
-                    +hyperparameter_lambda * self.loss(
+                    l = self.loss(
+                        y_hat[:, :3], img_depth[:, :3]
+                    ) + hyperparameter_lambda * self.loss(
                         self.perceptual_model(perceptual_model_input), img_depth[:, 3:]
                     )
 
