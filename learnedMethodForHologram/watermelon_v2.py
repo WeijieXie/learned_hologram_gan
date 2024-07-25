@@ -83,9 +83,8 @@ class watermelon_v2(nn.Module):
         # print(f"phs_0 shape is {phs_0.shape}")
         intensity_phs = self.propagator.propagate_P2IP(phs_0)
         # print(f"intensity_phs shape is {intensity_phs.shape}")
-        return (
-            intensity_phs  # 6 channels = 3 channels of intensity + 3 channels of phase
-        )
+        return intensity_phs  
+        # 6 channels = 3 channels of intensity + 3 channels of phase
 
     def train_model(
         self,
@@ -137,11 +136,11 @@ class watermelon_v2(nn.Module):
                     )
 
                     l = self.loss(
-                        y_hat[:, :3], img_depth[:, :3]
+                       y_hat[:, :3], img_depth[:, :3]
                     ) + hyperparameter_lambda * self.loss(
                         self.perceptual_model(perceptual_model_input), img_depth[:, 3:]
                     )
-
+    
                 test_loss += l.item()
                 n_test += img_depth.size(0)
 
@@ -158,7 +157,7 @@ class watermelon_v2(nn.Module):
     def _initialize_weights(self):
         # Initialize weights by running a dummy forward pass
         dummy_input = torch.randn(*self.input_shape).to(self.device)
-        _ = self.forward(dummy_input)
+        _ = self.forward(torch.abs(dummy_input))
 
         for m in self.modules():
             if isinstance(m, (nn.Conv2d, nn.LazyConv2d)):
