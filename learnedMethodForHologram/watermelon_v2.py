@@ -16,21 +16,36 @@ from .neural_network_components import (
     ResNet_POH,
 )
 
+from .perceptual_loss import perceptual_loss
+
 
 class watermelon_v2(nn.Module):
     def __init__(
         self,
         input_shape,
-        propagation_distance,
         perceptual_model_path,
-        heavyweight_UNet=False, # use UNet_imgDepth2AP by default other than UNet_imgDepth2AP_heavyweight in watermelon_v1
+        propagation_distance=torch.tensor([1e-3]),
+        heavyweight_UNet=False,  # use UNet_imgDepth2AP by default other than UNet_imgDepth2AP_heavyweight in watermelon_v1
         cuda=True,
     ):
         super(watermelon_v2, self).__init__()
 
         self.input_shape = input_shape
         self.propagation_distance = propagation_distance
-        self.perceptual_model_path = perceptual_model_path
+
+        # load the pre-trained perceptual model
+        self.perceptual_model = perceptual_loss(
+            input_shape=(
+                1,
+                6,
+                input_shape[-2],
+                input_shape[-1],
+            ),  # the amplitude and phase
+            cuda=cuda,
+        )
+        self.perceptual_model.load_state_dict(torch.load(perceptual_model_path))
+        self.perceptual_model.eval()
+        self.perceptual_model._requires_grad(False)
 
         self.device = try_gpu() if cuda else torch.device("cpu")
 
@@ -65,9 +80,11 @@ class watermelon_v2(nn.Module):
         # print(f"amp_phs_0 shape is {amp_phs_0.shape}")
         phs_0 = self.part2(amp_phs_0)
         # print(f"phs_0 shape is {phs_0.shape}")
-        intensity = self.propagator.propagate_P2I(phs_0)
-        # print(f"intensity shape is {intensity.shape}")
-        return intensity
+        intensity_phs = self.propagator.propagate_P2IP(phs_0)
+        # print(f"intensity_phs shape is {intensity_phs.shape}")
+        return (
+            intensity_phs  # 6 channels = 3 channels of intensity + 3 channels of phase
+        )
 
     def train_model(self, train_iter, test_iter, num_epochs, lr):
         model = self
@@ -76,9 +93,21 @@ class watermelon_v2(nn.Module):
         for epoch in range(num_epochs):
             model.train()
             train_loss, n_train = 0.0, 0
-            for img_depth in train_iter:
-                y_hat = model(img_depth)
-                l = self.loss(y_hat, img_depth[:, :3])
+            for img_depth in train_iter: # 4 channels = 3 channels of intensity + 1 channel of depth
+
+                y_hat = model(
+                    img_depth
+                )  # 6 channels = 3 channels of intensity + 3 channels of phase
+
+                perceptual_model_input = torch.cat(
+                    (torch.sqrt(img_depth[:, :3]), y_hat[:, 3:]), dim=1
+                )  # 6 channels = 3 channels of amplitude + 3 channels of phase
+
+                l = self.loss(y_hat[:, :3], img_depth[:, :3])
+                +self.loss(
+                    self.perceptual_model(perceptual_model_input), img_depth[:, 3:]
+                )
+
                 self.optimizer.zero_grad()
                 l.backward()
                 self.optimizer.step()
@@ -91,7 +120,15 @@ class watermelon_v2(nn.Module):
             for img_depth in test_iter:
                 with torch.no_grad():
                     y_hat = model(img_depth)
-                l = self.loss(y_hat, img_depth[:, :3])
+
+                    perceptual_model_input = torch.cat(
+                        (torch.sqrt(img_depth[:, :3]), y_hat[:, 3:]), dim=1
+                    )
+
+                    l = self.loss(y_hat[:, :3], img_depth[:, :3])
+                    +self.loss(
+                        self.perceptual_model(perceptual_model_input), img_depth[:, 3:]
+                    )
 
                 test_loss += l.item()
                 n_test += img_depth.size(0)
@@ -100,9 +137,8 @@ class watermelon_v2(nn.Module):
             )
 
     def loss(self, y_hat, y):
-        loss_1 = nn.MSELoss()
-        loss_2 = 0.0
-        return loss_1(y_hat, y) + loss_2
+        loss = nn.MSELoss()
+        return loss(y_hat, y)
 
     def _initialize_weights(self):
         # Initialize weights by running a dummy forward pass
