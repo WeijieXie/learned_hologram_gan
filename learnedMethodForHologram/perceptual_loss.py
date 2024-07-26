@@ -1,6 +1,8 @@
 import torch
 from torch import nn
 from torch.nn import functional as F
+from torch.optim.lr_scheduler import MultiStepLR, ReduceLROnPlateau
+
 
 from .utilities import try_gpu
 from .bandlimited_angular_spectrum_approach import (
@@ -45,13 +47,32 @@ class perceptual_loss(nn.Module):
         loss = nn.MSELoss()
         return loss(y_hat, y)
 
-    def train_model(self, train_iter, test_iter, num_epochs, lr):
+    def train_model(
+        self,
+        train_iter,
+        test_iter,
+        num_epochs=50,
+        lr=1e-3,
+        hyperparameter_gamma=0.1,
+    ):
         """
         takes in the amplitude and phase of the rgb image and trains the model
         """
         model = self
         model.train()
+
         self.optimizer = torch.optim.Adam(model.parameters(), lr=lr)
+
+        self.scheduler = ReduceLROnPlateau(
+            self.optimizer,
+            "min",
+            factor=hyperparameter_gamma,
+            patience=2,
+            verbose=True,
+            threshold=1e-3,
+            threshold_mode="rel",
+        )
+
         for epoch in range(num_epochs):
 
             # train
@@ -59,8 +80,8 @@ class perceptual_loss(nn.Module):
             train_loss, n_train = 0.0, 0
             for img3ch_phs3ch_depth in train_iter:
 
-                y_hat = model(img3ch_phs3ch_depth[:,:-1])
-                l = self.loss(y_hat, img3ch_phs3ch_depth[:,-1].unsqueeze(1))
+                y_hat = model(img3ch_phs3ch_depth[:, :-1])
+                l = self.loss(y_hat, img3ch_phs3ch_depth[:, -1].unsqueeze(1))
 
                 self.optimizer.zero_grad()
                 l.backward()
@@ -76,20 +97,23 @@ class perceptual_loss(nn.Module):
             for img3ch_phs3ch_depth in test_iter:
 
                 with torch.no_grad():
-                    y_hat = model(img3ch_phs3ch_depth[:,:-1])
-                l = self.loss(y_hat, img3ch_phs3ch_depth[:,-1].unsqueeze(1))
+                    y_hat = model(img3ch_phs3ch_depth[:, :-1])
+                l = self.loss(y_hat, img3ch_phs3ch_depth[:, -1].unsqueeze(1))
 
                 test_loss += l.item()
                 n_test += img3ch_phs3ch_depth.size(0)
 
             print(
-                f"epoch {epoch + 1}, train loss {train_loss / n_train:.4f}, test loss {test_loss / n_test:.4f}"
+                f"epoch {epoch + 1}, train loss {train_loss / n_train:.6f}, test loss {test_loss / n_test:.6f}"
             )
+
+            self.scheduler.step(test_loss / n_test)
+            # self.scheduler.step()
 
     def _initialize_weights(self):
         # Initialize weights by running a dummy forward pass
         dummy_input = torch.randn(*self.input_shape).to(self.device)
-        _ = self.forward(dummy_input)
+        _ = self.forward(torch.abs(dummy_input))
 
         for m in self.modules():
             if isinstance(m, (nn.Conv2d, nn.LazyConv2d)):
