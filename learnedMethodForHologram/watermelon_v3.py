@@ -1,6 +1,6 @@
 import torch
 from torch import nn
-from torch.optim.lr_scheduler import MultiStepLR
+from torch.optim.lr_scheduler import MultiStepLR, ReduceLROnPlateau
 
 from .watermelon_v2 import watermelon_v2
 
@@ -54,8 +54,17 @@ class watermelon_v3(watermelon_v2):
         model = self
         model.train()
         self.optimizer = torch.optim.Adam(model.parameters(), lr=lr)
-        self.scheduler = MultiStepLR(
-            self.optimizer, milestones=milestones, gamma=hyperparameter_gamma
+        # self.scheduler = MultiStepLR(
+        #     self.optimizer, milestones=milestones, gamma=hyperparameter_gamma
+        # )
+        self.scheduler = ReduceLROnPlateau(
+            self.optimizer,
+            "min",
+            factor=hyperparameter_gamma,
+            patience=1,
+            verbose=True,
+            threshold=1e-2,
+            threshold_mode="rel",
         )
         for epoch in range(num_epochs):
             model.train()
@@ -95,8 +104,9 @@ class watermelon_v3(watermelon_v2):
                 test_loss += l.item()
                 n_test += img_depth.size(0)
 
-            self.scheduler.step()
+            self.scheduler.step(test_loss / n_test)
+            # self.scheduler.step()
 
             print(
-                f"epoch {epoch + 1}, train loss {train_loss / n_train:.4f}, test loss {test_loss / n_test:.4f}"
+                f"epoch {epoch + 1}, train loss {train_loss / n_train:.6f}, test loss {test_loss / n_test:.6f}"
             )
