@@ -326,6 +326,17 @@ class bandLimitedAngularSpectrumMethod_for_single_fixed_distance(
             (torch.abs(g_z) ** 2, torch.angle(g_z)), dim=1
         )  # dim = 0 is the batch size
 
+    def propagate_P2AP(
+        self,
+        phase_tensor,
+    ):
+        G_0 = torch.fft.fft2(torch.exp(1j * phase_tensor))
+        G_z = G_0 * self.H * self.diffraction_limited_mask
+        g_z = torch.fft.ifft2(G_z)
+        return torch.cat(
+            (torch.abs(g_z), torch.angle(g_z)), dim=1
+        )  # dim = 0 is the batch size
+
     def generate_band_limited_mask(self):
         d_x_0 = 1 / (self.samplingRowNum * self.pixel_pitch)
         d_y_0 = 1 / (self.samplingColNum * self.pixel_pitch)
