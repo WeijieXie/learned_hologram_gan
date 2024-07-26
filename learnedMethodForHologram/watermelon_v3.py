@@ -61,9 +61,9 @@ class watermelon_v3(watermelon_v2):
             self.optimizer,
             "min",
             factor=hyperparameter_gamma,
-            patience=1,
+            patience=2,
             verbose=True,
-            threshold=1e-2,
+            threshold=1e-4,
             threshold_mode="rel",
         )
         for epoch in range(num_epochs):
