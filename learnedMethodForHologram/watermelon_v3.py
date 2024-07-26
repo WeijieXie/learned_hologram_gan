@@ -47,34 +47,36 @@ class watermelon_v3(watermelon_v2):
         test_iter,
         hyperparameter_lambda=1.0,
         num_epochs=20,
-        lr=5e-3,
-        milestones=[7, 14],
+        lr=1e-3,
         hyperparameter_gamma=0.1,
+        # milestones=[7, 14],
     ):
         model = self
         model.train()
         self.optimizer = torch.optim.Adam(model.parameters(), lr=lr)
+
         # self.scheduler = MultiStepLR(
         #     self.optimizer, milestones=milestones, gamma=hyperparameter_gamma
         # )
+
         self.scheduler = ReduceLROnPlateau(
             self.optimizer,
             "min",
             factor=hyperparameter_gamma,
             patience=2,
             verbose=True,
-            threshold=1e-4,
+            threshold=1e-3,
             threshold_mode="rel",
         )
+
         for epoch in range(num_epochs):
             model.train()
             train_loss, n_train = 0.0, 0
             # 4 channels = 3 channels of intensity + 1 channel of depth
             for img_depth in train_iter:
 
-                y_hat = model(
-                    img_depth
-                )  # 6 channels = 3 channels of amplitude + 3 channels of phase
+                y_hat = model(img_depth)
+                # 6 channels = 3 channels of amplitude + 3 channels of phase
 
                 l = self.loss(
                     (y_hat[:, :3]) ** 2, img_depth[:, :3]
@@ -104,9 +106,9 @@ class watermelon_v3(watermelon_v2):
                 test_loss += l.item()
                 n_test += img_depth.size(0)
 
-            self.scheduler.step(test_loss / n_test)
-            # self.scheduler.step()
-
             print(
                 f"epoch {epoch + 1}, train loss {train_loss / n_train:.6f}, test loss {test_loss / n_test:.6f}"
             )
+
+            self.scheduler.step(test_loss / n_test)
+            # self.scheduler.step()
