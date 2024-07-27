@@ -247,7 +247,7 @@ class data_loader_A_B(Dataset):
 class data_loader_for_percepetual_loss(Dataset):
     def __init__(
         self,
-        path_img,
+        path_amp,
         path_phs,
         path_depth,
         samplesNum=3800,
@@ -257,7 +257,7 @@ class data_loader_for_percepetual_loss(Dataset):
         cuda=False,
     ):
         self.dataShape = (samplesNum, channlesNum, height, width)
-        self.img = np.memmap(path_img, dtype=np.float32, mode="r", shape=self.dataShape)
+        self.amp = np.memmap(path_amp, dtype=np.float32, mode="r", shape=self.dataShape)
         self.phs = np.memmap(path_phs, dtype=np.float32, mode="r", shape=self.dataShape)
         self.depth = np.memmap(
             path_depth, dtype=np.float32, mode="r", shape=self.dataShape
@@ -277,7 +277,7 @@ class data_loader_for_percepetual_loss(Dataset):
 
         return torch.cat(
             [
-                torch.sqrt(torch.tensor(self.img[idx])),
+                torch.tensor(self.amp[idx]),
                 torch.tensor(self.phs[idx]),
                 torch.tensor(self.depth[idx][0]).unsqueeze(0),
             ],
