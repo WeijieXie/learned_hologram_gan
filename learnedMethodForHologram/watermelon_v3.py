@@ -36,7 +36,7 @@ class watermelon_v3(watermelon_v2):
         # print(f"amp_phs_0 shape is {amp_phs_0.shape}")
         phs_0 = self.part2(amp_phs_0)
         # print(f"phs_0 shape is {phs_0.shape}")
-        amp_phs = self.propagator.propagate_P2IP(phs_0)
+        amp_phs = self.propagator.propagate_P2AP(phs_0)
         # print(f"intensity_phs shape is {intensity_phs.shape}")
         return amp_phs
         # 6 channels = 3 channels of amp + 3 channels of phase
@@ -76,7 +76,7 @@ class watermelon_v3(watermelon_v2):
             for img_depth in train_iter:
 
                 y_hat = model(img_depth)
-                # 6 channels = 3 channels of amplitude + 3 channels of phase
+                # 6 channels = 3 channels of amp + 3 channels of phase
 
                 l = self.loss(
                     (y_hat[:, :3]) ** 2, img_depth[:, :3]
