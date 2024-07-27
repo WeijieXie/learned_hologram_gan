@@ -67,10 +67,11 @@ class perceptual_loss(nn.Module):
             self.optimizer,
             "min",
             factor=hyperparameter_gamma,
-            patience=2,
+            patience=3,
             verbose=True,
             threshold=1e-3,
             threshold_mode="rel",
+            min_lr=1e-6,
         )
 
         for epoch in range(num_epochs):
