@@ -337,6 +337,23 @@ class bandLimitedAngularSpectrumMethod_for_single_fixed_distance(
             (torch.abs(g_z), torch.angle(g_z)), dim=1
         )  # dim = 0 is the batch size
 
+    def propagate_P2AAP(
+        self,
+        phase_tensor,
+    ):
+        """
+        This method is designed for v4. It returns a tensor with 9 channels.
+        """
+        G_0 = torch.fft.fft2(torch.exp(1j * phase_tensor))
+        G_z = G_0 * self.H
+        G_z_4f = G_z * self.diffraction_limited_mask
+        g_z_6_channels = torch.fft.ifft2(torch.cat((G_z_4f, G_z), dim=1))
+
+        # return 3 + 3 + 3 : 3 channels of filtered amplitude + 3 channels of amplitude + 3 channels of phs
+        return torch.cat(
+            (torch.abs(g_z_6_channels), torch.angle(g_z_6_channels[:, 3:])), dim=1
+        )
+
     def generate_band_limited_mask(self):
         d_x_0 = 1 / (self.samplingRowNum * self.pixel_pitch)
         d_y_0 = 1 / (self.samplingColNum * self.pixel_pitch)
