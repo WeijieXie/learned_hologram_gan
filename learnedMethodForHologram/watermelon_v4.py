@@ -1,12 +1,9 @@
 import torch
-from torch import nn
 from torch.optim.lr_scheduler import MultiStepLR, ReduceLROnPlateau
 
 from .neural_network_components import UNet_imgDepth2AP_v1
 
 from .watermelon_v2 import watermelon_v2
-
-from .perceptual_loss import perceptual_loss
 
 
 class watermelon_v4(watermelon_v2):
