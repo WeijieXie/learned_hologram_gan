@@ -9,4 +9,5 @@ from . import (
     watermelon_v3,
     watermelon_v4,
     perceptual_loss,
+    watermelon_GAN,
 )
