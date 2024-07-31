@@ -91,7 +91,7 @@ class RGBD2AP(nn.Module):
             # train
             model.train()
             train_loss, n_train = 0.0, 0
-            for amp, phs, img_depth in train_loader:
+            for img_depth, amp, phs in train_loader:
 
                 amp_phs_hat = model(img_depth)
 
@@ -107,7 +107,7 @@ class RGBD2AP(nn.Module):
             # validation
             model.eval()
             test_loss, n_test = 0.0, 0
-            for amp, phs, img_depth in val_loader:
+            for img_depth, amp, phs in val_loader:
 
                 with torch.no_grad():
                     amp_phs_hat = model(img_depth)
