@@ -31,7 +31,6 @@ def test(output_directory="output/test_output", cuda=False):
         amplitute_tensor=amplitude_tensor,
         phase_tensor=phase_tensor,
         distances=distances,
-        spacial_frequency_filter=spacial_frequency_filter,
     )
     normalized_intensities = learnedMethodForHologram.utilities.tensor_normalizor_2D(
         intensities
