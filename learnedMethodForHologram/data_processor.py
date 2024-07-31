@@ -139,7 +139,6 @@ class data_loader(Dataset):
         channlesNum=3,
         height=192,
         width=192,
-        padding=False,
         cuda=False,
     ):
         self.dataShape = (samplesNum, channlesNum, height, width)
@@ -149,15 +148,10 @@ class data_loader(Dataset):
         self.depth = np.memmap(
             depth_path, dtype=np.float32, mode="r", shape=self.dataShape
         )
-        self.padding = padding
         if cuda:
             self.device = try_gpu()
         else:
             self.device = torch.device("cpu")
-
-        if padding:
-            if height != 192 or width != 192:
-                raise ValueError("Current padding is only supported for 192x192 images")
 
     def __len__(self):
         return self.dataShape[0]
@@ -165,32 +159,13 @@ class data_loader(Dataset):
     def __getitem__(self, idx):
         if idx < 0 or idx >= len(self):
             raise IndexError("Index out of range")
-        if self.padding:
-            return (
-                # F.pad(torch.tensor(self.amp[idx]).to(self.device), (32, 32, 32, 32)),
-                # F.pad(torch.tensor(self.phs[idx]).to(self.device), (32, 32, 32, 32)),
-                # F.pad(torch.tensor(self.img[idx]).to(self.device), (32, 32, 32, 32)),
-                # F.pad(torch.tensor(self.depth[idx]).to(self.device), (32, 32, 32, 32)),
-                F.pad(
-                    torch.tensor(self.amp[idx]).to(self.device), (160, 160, 160, 160)
-                ),
-                F.pad(
-                    torch.tensor(self.phs[idx]).to(self.device), (160, 160, 160, 160)
-                ),
-                F.pad(
-                    torch.tensor(self.img[idx]).to(self.device), (160, 160, 160, 160)
-                ),
-                F.pad(
-                    torch.tensor(self.depth[idx]).to(self.device), (160, 160, 160, 160)
-                ),
-            )
-        else:
-            return (
-                torch.tensor(self.amp[idx]).to(self.device),
-                torch.tensor(self.phs[idx]).to(self.device),
-                torch.tensor(self.img[idx]).to(self.device),
-                torch.tensor(self.depth[idx]).to(self.device),
-            )
+
+        return (
+            torch.tensor(self.amp[idx]).to(self.device),
+            torch.tensor(self.phs[idx]).to(self.device),
+            torch.tensor(self.img[idx]).to(self.device),
+            torch.tensor(self.depth[idx]).to(self.device),
+        )
 
 
 class data_loader_A_B(Dataset):
@@ -202,21 +177,15 @@ class data_loader_A_B(Dataset):
         channlesNum=3,
         height=192,
         width=192,
-        padding=False,
         cuda=False,
     ):
         self.dataShape = (samplesNum, channlesNum, height, width)
         self.img = np.memmap(path_A, dtype=np.float32, mode="r", shape=self.dataShape)
         self.depth = np.memmap(path_B, dtype=np.float32, mode="r", shape=self.dataShape)
-        self.padding = padding
         if cuda:
             self.device = try_gpu()
         else:
             self.device = torch.device("cpu")
-
-        if padding:
-            if height != 192 or width != 192:
-                raise ValueError("Current padding is only supported for 192x192 images")
 
     def __len__(self):
         return self.dataShape[0]
@@ -224,24 +193,14 @@ class data_loader_A_B(Dataset):
     def __getitem__(self, idx):
         if idx < 0 or idx >= len(self):
             raise IndexError("Index out of range")
-        if self.padding:
-            return F.pad(
-                torch.cat(
-                    [
-                        torch.tensor(self.img[idx]),
-                        torch.tensor(self.depth[idx][0]).unsqueeze(0),
-                    ],
-                    dim=0,
-                ).to(self.device)
-            )
-        else:
-            return torch.cat(
-                [
-                    torch.tensor(self.img[idx]),
-                    torch.tensor(self.depth[idx][0]).unsqueeze(0),
-                ],
-                dim=0,
-            ).to(self.device)
+
+        return torch.cat(
+            [
+                torch.tensor(self.img[idx]),
+                torch.tensor(self.depth[idx][0]).unsqueeze(0),
+            ],
+            dim=0,
+        ).to(self.device)
 
 
 class data_loader_for_percepetual_loss(Dataset):
