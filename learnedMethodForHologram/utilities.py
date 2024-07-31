@@ -5,6 +5,7 @@ from torchvision import transforms
 
 from PIL import Image
 import matplotlib.pyplot as plt
+import random
 
 import zipfile
 import os
@@ -357,6 +358,16 @@ def mask_generator(
     mask_v = torch.abs(freq_y) < torch.tensor(v_limit)
     mask = mask_u.unsqueeze(1) & mask_v.unsqueeze(0)
     return mask
+
+
+def set_seed(seed):
+    torch.manual_seed(seed)
+    torch.cuda.manual_seed(seed)
+    torch.cuda.manual_seed_all(seed)
+    np.random.seed(seed)
+    random.seed(seed)
+    torch.backends.cudnn.deterministic = True
+    torch.backends.cudnn.benchmark = False
 
 
 def num_gpus():
