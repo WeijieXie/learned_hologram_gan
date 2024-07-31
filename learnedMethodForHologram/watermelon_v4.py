@@ -1,7 +1,7 @@
 import torch
 from torch.optim.lr_scheduler import MultiStepLR, ReduceLROnPlateau
 
-from .neural_network_components import UNet_imgDepth2AP_v1
+from .neural_network_components import UNet_imgDepth2AP_deprecated_v1
 
 from .watermelon_v2 import watermelon_v2
 
@@ -23,7 +23,7 @@ class watermelon_v4(watermelon_v2):
             cuda=cuda,
         )
 
-        self.part1 = UNet_imgDepth2AP_v1(output_channels=6).to(self.device)
+        self.part1 = UNet_imgDepth2AP_deprecated_v1(output_channels=6).to(self.device)
         self._initialize_weights()
 
     def forward(self, X):
@@ -66,6 +66,7 @@ class watermelon_v4(watermelon_v2):
             threshold=1e-3,
             threshold_mode="rel",
             min_lr=1e-6,
+            # cooldown=2,
         )
 
         for epoch in range(num_epochs):

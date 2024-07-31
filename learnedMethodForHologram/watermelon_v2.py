@@ -12,8 +12,8 @@ from .bandlimited_angular_spectrum_approach import (
 # BLASM_v3 denotes the child class bandLimitedAngularSpectrumMethod_for_single_fixed_distance in bandlimited_angular_spectrum_approach.py
 
 from .neural_network_components import (
-    UNet_imgDepth2AP_v2,
-    UNet_imgDepth2AP_heavyweight_v2,
+    UNet_imgDepth2AP_deprecated_v2,
+    UNet_imgDepth2AP_heavyweight_deprecated_v2,
     ResNet_POH,
 )
 
@@ -63,9 +63,9 @@ class watermelon_v2(nn.Module):
 
         # a UNet used for generate amp and phs from rgbd input
         if heavyweight_UNet:
-            self.part1 = UNet_imgDepth2AP_heavyweight_v2(output_channels=6).to(self.device)
+            self.part1 = UNet_imgDepth2AP_heavyweight_deprecated_v2(output_channels=6).to(self.device)
         else:
-            self.part1 = UNet_imgDepth2AP_v2(output_channels=6).to(self.device)
+            self.part1 = UNet_imgDepth2AP_deprecated_v2(output_channels=6).to(self.device)
 
         # a ResNet (without pooling) used for generate phase-only hologram from amp and phs
         self.part2 = ResNet_POH(output_channels=3).to(self.device)

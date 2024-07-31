@@ -177,17 +177,17 @@ class UNet(nn.Module):
         return self.final_layer(decoder4)
 
 
-class UNet_imgDepth2AP_v1(UNet):
+class UNet_imgDepth2AP_deprecated_v1(UNet):
     def __init__(self, output_channels=6):
-        super(UNet_imgDepth2AP_v1, self).__init__(output_channels)
+        super(UNet_imgDepth2AP_deprecated_v1, self).__init__(output_channels)
 
     def forward(self, X):
-        return 2 * torch.pi * super(UNet_imgDepth2AP_v1, self).forward(X)
+        return 2 * torch.pi * super(UNet_imgDepth2AP_deprecated_v1, self).forward(X)
 
 
-class UNet_imgDepth2AP_heavyweight_v1(UNet_imgDepth2AP_v1):
+class UNet_imgDepth2AP_heavyweight_deprecated_v1(UNet_imgDepth2AP_deprecated_v1):
     def __init__(self, output_channels=6):
-        super(UNet_imgDepth2AP_heavyweight_v1, self).__init__(output_channels)
+        super(UNet_imgDepth2AP_heavyweight_deprecated_v1, self).__init__(output_channels)
 
     def conv_block(self, out_channels):
         return nn.Sequential(
@@ -196,18 +196,18 @@ class UNet_imgDepth2AP_heavyweight_v1(UNet_imgDepth2AP_v1):
         )
 
 
-class UNet_imgDepth2AP_v2(UNet):
+class UNet_imgDepth2AP_deprecated_v2(UNet):
     def __init__(self, output_channels=6):
-        super(UNet_imgDepth2AP_v2, self).__init__(output_channels)
+        super(UNet_imgDepth2AP_deprecated_v2, self).__init__(output_channels)
 
     def forward(self, X):
         X[:, :3] = torch.sqrt(X[:, :3])
-        return 2 * torch.pi * super(UNet_imgDepth2AP_v2, self).forward(X)
+        return 2 * torch.pi * super(UNet_imgDepth2AP_deprecated_v2, self).forward(X)
 
 
-class UNet_imgDepth2AP_heavyweight_v2(UNet_imgDepth2AP_v2):
+class UNet_imgDepth2AP_heavyweight_deprecated_v2(UNet_imgDepth2AP_deprecated_v2):
     def __init__(self, output_channels=6):
-        super(UNet_imgDepth2AP_heavyweight_v2, self).__init__(output_channels)
+        super(UNet_imgDepth2AP_heavyweight_deprecated_v2, self).__init__(output_channels)
 
     def conv_block(self, out_channels):
         return nn.Sequential(
