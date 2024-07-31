@@ -58,6 +58,7 @@ class RGBD2AP(nn.Module):
         alpha=1e-3,
         hyperparameter_gamma=0.1,
         save_path=None,
+        checkpoint_iterval=10,
     ):
         if self.freeze:
             raise ValueError("The model is frozen, cannot be trained")
@@ -129,7 +130,7 @@ class RGBD2AP(nn.Module):
             self.scheduler.step(average_test_loss)
 
             # checkpoint
-            if epoch % 10 == 0 and epoch != 0 and save_path is not None:
+            if epoch % checkpoint_iterval == 0 and epoch != 0 and save_path is not None:
                 check_point_path = save_path.replace(".pth", f"_epoch{epoch}.pth")
                 torch.save(model.state_dict(), check_point_path)
 
@@ -145,7 +146,7 @@ class RGBD2AP(nn.Module):
     ):
         return amp_phs_loss(
             amp_phs_hat,
-            2 * torch.pi * amp,
+            amp,
             2 * torch.pi * phs,
             alpha,
         )
