@@ -19,6 +19,7 @@ class RGBD2AP(nn.Module):
         pretrained_model_path=None,
         freeze=False,
         cuda=True,
+        amplitude_scaler=1.1,
     ):
         super(RGBD2AP, self).__init__()
 
@@ -26,10 +27,10 @@ class RGBD2AP(nn.Module):
         self.pretrained_model_path = pretrained_model_path
         self.freeze = freeze
         self.device = try_gpu() if cuda else torch.device("cpu")
+        self.amplitude_scaler = amplitude_scaler
 
         # a UNet whose input is RGBD and output is amplitude(0~1) and phase(0~1)
         self.part1 = UNet(output_channels=6).to(self.device)
-        self.adjustment_factor = nn.Parameter(torch.tensor([1.0]))
 
         if self.pretrained_model_path is not None:
             self.part1.load_state_dict(torch.load(self.pretrained_model_path))
@@ -44,7 +45,7 @@ class RGBD2AP(nn.Module):
         take the 4 channels of RGBD as input and output the 6 channels of amplitude and phase
         """
         y = self.part1(RGBD)
-        y[:, :3, :, :] = self.adjustment_factor * y[:, :3, :, :]  # amplitude
+        y[:, :3, :, :] = self.amplitude_scaler * y[:, :3, :, :]  # amplitude
         y[:, 3:, :, :] = 2 * torch.pi * y[:, 3:, :, :]  # phase
         return y
 
