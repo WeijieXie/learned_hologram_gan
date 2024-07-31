@@ -29,13 +29,15 @@ class bandLimitedAngularSpectrumMethod:
         self,
         sample_row_num=192,
         sample_col_num=192,
+        pad_size=0,
         pixel_pitch=3.74e-6,
         wave_length=torch.tensor([639e-9, 515e-9, 473e-9]),
         band_limit=False,
         cuda=False,
     ):
-        self.samplingRowNum = sample_row_num
-        self.samplingColNum = sample_col_num
+        self.samplingRowNum = sample_row_num + 2 * pad_size
+        self.samplingColNum = sample_col_num + 2 * pad_size
+        self.pad_size = pad_size
         self.pixel_pitch = pixel_pitch
         self.wave_length = wave_length
         self.band_limit = band_limit
@@ -58,7 +60,6 @@ class bandLimitedAngularSpectrumMethod:
         amplitute_tensor,
         phase_tensor,
         distances,
-        spacial_frequency_filter=None,
     ):
         """
         The forward function of the angular spectrum method.
@@ -73,10 +74,15 @@ class bandLimitedAngularSpectrumMethod:
         Returns:
             torch.Tensor: The intensity of the hologram.
         """
-        G_0 = torch.fft.fft2(amplitute_tensor * torch.exp(1j * phase_tensor))
+        G_0 = torch.fft.fft2(
+            self.padding(amplitute_tensor * torch.exp(1j * phase_tensor))
+        )
         H = self.generate_transfer_function(distances)
         G_z = G_0 * H * self.diffraction_limited_mask
-        intensity = torch.abs(torch.fft.ifft2(G_z)) ** 2
+        # G_z = G_0 * H
+        # intensity = torch.abs(self.cropping(torch.fft.ifft2(G_z))) ** 2
+        intensity = torch.abs(self.cropping(torch.fft.ifft2(G_z)))
+
         return intensity
 
     def propagate_AP2AP(
@@ -133,8 +139,9 @@ class bandLimitedAngularSpectrumMethod:
         return utilities.generate_circular_frequency_mask(
             sample_row_num=self.samplingRowNum,
             sample_col_num=self.samplingColNum,
-            radius=min(self.samplingRowNum, self.samplingColNum) // 3,
+            radius=min(self.samplingRowNum, self.samplingColNum) // 2,
             # which picks 2/3 frequencies on the frequency domain
+            # radius=192,
         )
 
         # return utilities.generate_square_frequency_mask(
@@ -204,6 +211,45 @@ class bandLimitedAngularSpectrumMethod:
 
         return H.squeeze()
 
+    def padding(self, tensor):
+        """
+        Padding the tensor with zeros.
+
+        Args:
+            tensor (torch.Tensor): The tensor to be padded.
+            pad_size (int): The size of the padding.
+
+        Returns:
+            torch.Tensor: The padded tensor.
+        """
+        if self.pad_size == 0:
+            return tensor
+        else:
+            return torch.nn.functional.pad(
+                tensor,
+                (self.pad_size, self.pad_size, self.pad_size, self.pad_size),
+                mode="constant",
+                value=0,
+            )
+
+    def cropping(self, tensor):
+        """
+        Invert the padding operation.
+
+        Args:
+            tensor (torch.Tensor): The tensor to be inverted.
+            pad_size (int): The size of the padding.
+
+        Returns:
+            torch.Tensor: The inverted tensor.
+        """
+        if self.pad_size == 0:
+            return tensor
+        else:
+            return tensor[
+                :, :, self.pad_size : -self.pad_size, self.pad_size : -self.pad_size
+            ]
+
 
 class bandLimitedAngularSpectrumMethod_for_single_fixed_distance(
     bandLimitedAngularSpectrumMethod
@@ -232,6 +278,7 @@ class bandLimitedAngularSpectrumMethod_for_single_fixed_distance(
         self,
         sample_row_num=192,
         sample_col_num=192,
+        pad_size=0,
         pixel_pitch=3.74e-6,
         wave_length=torch.tensor([639e-9, 515e-9, 473e-9]),
         band_limit=False,
@@ -243,6 +290,7 @@ class bandLimitedAngularSpectrumMethod_for_single_fixed_distance(
         ).__init__(
             sample_row_num,
             sample_col_num,
+            pad_size,
             pixel_pitch,
             wave_length,
             band_limit,
@@ -259,12 +307,14 @@ class bandLimitedAngularSpectrumMethod_for_single_fixed_distance(
         amplitute_tensor,
         phase_tensor,
     ):
-        G_0 = torch.fft.fft2(amplitute_tensor * torch.exp(1j * phase_tensor))
+        G_0 = torch.fft.fft2(
+            self.padding(amplitute_tensor * torch.exp(1j * phase_tensor))
+        )
 
         # G_z = G_0 * self.H * self.diffraction_limited_mask * self.band_limited_mask
         G_z = G_0 * self.H * self.diffraction_limited_mask
 
-        intensity = torch.abs(torch.fft.ifft2(G_z)) ** 2
+        intensity = torch.abs(self.cropping(torch.fft.ifft2(G_z))) ** 2
         return intensity
 
     def propagate_AP2AP(
@@ -282,18 +332,20 @@ class bandLimitedAngularSpectrumMethod_for_single_fixed_distance(
             torch.Tensor: The amplitude and phase tensor of the image whose shape is (batch_size, 6, samplingRowNum, samplingColNum).
         """
         G_0 = torch.fft.fft2(
-            amp_phs_tensor_0.view(-1, 3, 2, self.samplingRowNum, self.samplingColNum)[
-                :, :, 0
-            ]
-            * torch.exp(
-                1j
-                * amp_phs_tensor_0.view(
+            self.padding(
+                amp_phs_tensor_0.view(
                     -1, 3, 2, self.samplingRowNum, self.samplingColNum
-                )[:, :, 1]
+                )[:, :, 0]
+                * torch.exp(
+                    1j
+                    * amp_phs_tensor_0.view(
+                        -1, 3, 2, self.samplingRowNum, self.samplingColNum
+                    )[:, :, 1]
+                )
             )
         )
-        g_z = torch.fft.ifft2(
-            G_0 / self.H
+        g_z = self.cropping(
+            torch.fft.ifft2(G_0 / self.H)
         )  # because of the direction of the propagation
         return torch.cat((torch.abs(g_z), torch.angle(g_z)), dim=1)
 
@@ -311,17 +363,17 @@ class bandLimitedAngularSpectrumMethod_for_single_fixed_distance(
         Returns:
             torch.Tensor: The intensity tensor of the image.
         """
-        G_0 = torch.fft.fft2(torch.exp(1j * phase_tensor))
+        G_0 = torch.fft.fft2(self.padding(torch.exp(1j * phase_tensor)))
         G_z = G_0 * self.H * self.diffraction_limited_mask
-        return torch.abs(torch.fft.ifft2(G_z)) ** 2
+        return torch.abs(self.cropping(torch.fft.ifft2(G_z))) ** 2
 
     def propagate_P2IP(
         self,
         phase_tensor,
     ):
-        G_0 = torch.fft.fft2(torch.exp(1j * phase_tensor))
+        G_0 = torch.fft.fft2(self.padding(torch.exp(1j * phase_tensor)))
         G_z = G_0 * self.H * self.diffraction_limited_mask
-        g_z = torch.fft.ifft2(G_z)
+        g_z = self.cropping(torch.fft.ifft2(G_z))
         return torch.cat(
             (torch.abs(g_z) ** 2, torch.angle(g_z)), dim=1
         )  # dim = 0 is the batch size
@@ -330,9 +382,9 @@ class bandLimitedAngularSpectrumMethod_for_single_fixed_distance(
         self,
         phase_tensor,
     ):
-        G_0 = torch.fft.fft2(torch.exp(1j * phase_tensor))
+        G_0 = torch.fft.fft2(self.padding(torch.exp(1j * phase_tensor)))
         G_z = G_0 * self.H * self.diffraction_limited_mask
-        g_z = torch.fft.ifft2(G_z)
+        g_z = self.cropping(torch.fft.ifft2(G_z))
         return torch.cat(
             (torch.abs(g_z), torch.angle(g_z)), dim=1
         )  # dim = 0 is the batch size
@@ -344,10 +396,10 @@ class bandLimitedAngularSpectrumMethod_for_single_fixed_distance(
         """
         This method is designed for v4. It returns a tensor with 9 channels.
         """
-        G_0 = torch.fft.fft2(torch.exp(1j * phase_tensor))
+        G_0 = torch.fft.fft2(self.padding(torch.exp(1j * phase_tensor)))
         G_z = G_0 * self.H
         G_z_4f = G_z * self.diffraction_limited_mask
-        g_z_6_channels = torch.fft.ifft2(torch.cat((G_z_4f, G_z), dim=1))
+        g_z_6_channels = self.cropping(torch.fft.ifft2(torch.cat((G_z_4f, G_z), dim=1)))
 
         # return 3 + 3 + 3 : 3 channels of filtered amplitude + 3 channels of amplitude + 3 channels of phs
         return torch.cat(
