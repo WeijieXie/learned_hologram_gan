@@ -12,6 +12,8 @@ class bandLimitedAngularSpectrumMethod:
     In test_bandlimited_agular_spectrum_approach, dim = 0 is interpreted as the different distances.
     While in network, dim = 0 is interpreted as the batch size.
 
+
+
     Attributes:
         samplingRowNum (int): The number of rows in the hologram.
         samplingColNum (int): The number of columns in the hologram.
@@ -35,6 +37,9 @@ class bandLimitedAngularSpectrumMethod:
         band_limit=False,
         cuda=False,
     ):
+
+        self.originalRowNum = sample_row_num
+        self.originalColNum = sample_col_num
         self.samplingRowNum = sample_row_num + 2 * pad_size
         self.samplingColNum = sample_col_num + 2 * pad_size
         self.pad_size = pad_size
@@ -101,20 +106,22 @@ class bandLimitedAngularSpectrumMethod:
             torch.Tensor: The amplitude and phase tensor of the image whose shape is (batch_size, 6, samplingRowNum, samplingColNum).
         """
         G_0 = torch.fft.fft2(
-            amp_phs_tensor_0.view(-1, 3, 2, self.samplingRowNum, self.samplingColNum)[
-                :, :, 0
-            ]
-            * torch.exp(
-                1j
-                * amp_phs_tensor_0.view(
+            self.padding(
+                amp_phs_tensor_0.view(
                     -1, 3, 2, self.samplingRowNum, self.samplingColNum
-                )[:, :, 1]
+                )[:, :, 0]
+                * torch.exp(
+                    1j
+                    * amp_phs_tensor_0.view(
+                        -1, 3, 2, self.samplingRowNum, self.samplingColNum
+                    )[:, :, 1]
+                )
             )
         )
         H = self.generate_transfer_function(distances)
 
         # NOTICE: if the direction of the propagation is backward, need to divide H!!!!!!!!
-        g_z = torch.fft.ifft2(G_0 * H)
+        g_z = self.cropping(torch.fft.ifft2(G_0 * H))
 
         return torch.cat((torch.abs(g_z), torch.angle(g_z)), dim=1)
 
@@ -123,10 +130,10 @@ class bandLimitedAngularSpectrumMethod:
         phase_tensor,
         distances,
     ):
-        G_0 = torch.fft.fft2(torch.exp(1j * phase_tensor))
+        G_0 = torch.fft.fft2(self.padding(torch.exp(1j * phase_tensor)))
         H = self.generate_transfer_function(distances)
         G_z = G_0 * H * self.diffraction_limited_mask
-        return torch.abs(torch.fft.ifft2(G_z)) ** 2
+        return torch.abs(self.cropping(torch.fft.ifft2(G_z))) ** 2
 
     def generate_diffraction_limited_mask(self):
         """
@@ -209,7 +216,7 @@ class bandLimitedAngularSpectrumMethod:
             * self.w_grid
         )
 
-        return H.squeeze()
+        return H
 
     def padding(self, tensor):
         """
@@ -257,6 +264,8 @@ class bandLimitedAngularSpectrumMethod_for_single_fixed_distance(
     """
     The band limited angular spectrum method for the hologram reconstruction.
     This version is designed for the case that the distance is fixed.
+
+    Notice: It CANNOT handle 3D tensor as input.
 
     Attributes:
         samplingRowNum (int): The number of rows in the hologram.
@@ -314,7 +323,7 @@ class bandLimitedAngularSpectrumMethod_for_single_fixed_distance(
         # G_z = G_0 * self.H * self.diffraction_limited_mask * self.band_limited_mask
         G_z = G_0 * self.H * self.diffraction_limited_mask
 
-        intensity = torch.abs(self.cropping(torch.fft.ifft2(G_z))) ** 2
+        intensity = torch.abs(self.cropping(torch.fft.ifft2(G_z)))
         return intensity
 
     def propagate_AP2AP(
@@ -431,3 +440,49 @@ class bandLimitedAngularSpectrumMethod_for_single_fixed_distance(
     def generate_transfer_function(self):
         H = torch.exp(-2j * torch.pi * self.distance * super().generate_w_grid())
         return H
+
+
+class bandLimitedAngularSpectrumMethod_for_multiple_distances(
+    bandLimitedAngularSpectrumMethod
+):
+    """
+    This version supports multiple distances and batch processing at the same time.
+    [a,b,c,d]: with a = batch_size, b = distances_num * 3, c = sample_row_num, d = sample_col_num
+    """
+
+    def __init__(
+        self,
+        sample_row_num=192,
+        sample_col_num=192,
+        pad_size=0,
+        pixel_pitch=3.74e-6,
+        wave_length=torch.tensor([639e-9, 515e-9, 473e-9]),
+        band_limit=False,
+        cuda=False,
+    ):
+        super(bandLimitedAngularSpectrumMethod_for_multiple_distances, self).__init__(
+            sample_row_num,
+            sample_col_num,
+            pad_size,
+            pixel_pitch,
+            wave_length,
+            band_limit,
+            cuda,
+        )
+
+    def __call__(
+        self,
+        amplitute_tensor,
+        phase_tensor,
+        distances,
+    ):
+        distances_num = distances.shape[0]
+        G_0 = torch.fft.fft2(
+            self.padding(amplitute_tensor * torch.exp(1j * phase_tensor))
+        )
+        H = self.generate_transfer_function(distances) * self.diffraction_limited_mask
+        G_z = (G_0.unsqueeze(1) * H * self.diffraction_limited_mask).view(
+            -1, 3 * distances_num, self.samplingRowNum, self.samplingColNum
+        )
+        intensity = torch.abs(self.cropping(torch.fft.ifft2(G_z)))
+        return intensity
