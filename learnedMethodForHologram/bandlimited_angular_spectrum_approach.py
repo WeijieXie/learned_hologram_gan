@@ -415,6 +415,40 @@ class bandLimitedAngularSpectrumMethod_for_single_fixed_distance(
             (torch.abs(g_z_6_channels), torch.angle(g_z_6_channels[:, 3:])), dim=1
         )
 
+    def propagate_AP2AP_backward(
+        self,
+        amp_phs_z,
+    ):
+        """
+        For GAN
+        """
+        G_z = torch.fft.fft2(
+            self.padding(
+                amp_phs_z.view(-1, 2, 3, self.samplingRowNum, self.samplingColNum)[:, 0]
+                * torch.exp(
+                    1j
+                    * amp_phs_z.view(
+                        -1, 2, 3, self.samplingRowNum, self.samplingColNum
+                    )[:, 1]
+                )
+            )
+        )
+        # because of the direction of the propagation
+        g_0 = self.cropping(torch.fft.ifft2(G_z / self.H))
+        return torch.cat((torch.abs(g_0), torch.angle(g_0)), dim=1)
+
+    def propagate_POH2AP_forward(
+        self,
+        phs_0,
+    ):
+        """
+        For GAN
+        """
+        G_0 = torch.fft.fft2(self.padding(torch.exp(1j * phs_0)))
+        # because of the direction of the propagation
+        g_z = self.cropping(torch.fft.ifft2(G_0 * self.H))
+        return torch.cat((torch.abs(g_z), torch.angle(g_z)), dim=1)
+
     def generate_band_limited_mask(self):
         d_x_0 = 1 / (self.samplingRowNum * self.pixel_pitch)
         d_y_0 = 1 / (self.samplingColNum * self.pixel_pitch)
