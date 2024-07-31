@@ -79,5 +79,5 @@ class data_loader_amp_phs(Dataset):
 
         return (
             torch.tensor(self.amp[idx]).to(self.device),
-            torch.tensor(self.phs[idx]).to(self.device),
+            2 * torch.pi * (torch.tensor(self.phs[idx]).to(self.device)),
         )
