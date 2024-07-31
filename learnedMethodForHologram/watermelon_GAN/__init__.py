@@ -4,4 +4,6 @@ from . import (
     generator,
     discriminator,
     watermelon_GAN,
+    loss_func,
+    data_proceccor,
 )
