@@ -360,6 +360,17 @@ def mask_generator(
     return mask
 
 
+def generate_checkerboard_mask(sample_row_num=192, sample_col_num=192, reversed=False):
+    checkerboard = torch.zeros((sample_row_num, sample_col_num), dtype=torch.float32)
+    if reversed:
+        checkerboard[::2, ::2] = 1
+        checkerboard[1::2, 1::2] = 1
+    else:
+        checkerboard[1::2, ::2] = 1
+        checkerboard[::2, 1::2] = 1
+    return checkerboard
+
+
 def set_seed(seed):
     torch.manual_seed(seed)
     torch.cuda.manual_seed(seed)
