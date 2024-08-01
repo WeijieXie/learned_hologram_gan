@@ -35,7 +35,7 @@ class AP2POH(nn.Module):
             sample_col_num=input_shape[-1],
             pad_size=96,
             pixel_pitch=3.74e-6,
-            wave_length=torch.tensor([450e-9, 520e-9, 638e-9]),
+            wave_length=torch.tensor([638e-9, 520e-9, 450e-9]),
             band_limit=False,
             cuda=cuda,
             distance=torch.tensor([1e-3]),
