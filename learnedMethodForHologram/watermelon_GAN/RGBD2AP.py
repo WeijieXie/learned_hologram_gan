@@ -45,9 +45,9 @@ class RGBD2AP(nn.Module):
         take the 4 channels of RGBD as input and output the 6 channels of amplitude and phase
         """
         y = self.part1(RGBD)
-        y[:, :3, :, :] = self.amplitude_scaler * y[:, :3, :, :]  # amplitude
-        y[:, 3:, :, :] = 2 * torch.pi * y[:, 3:, :, :]  # phase
-        return y
+        amp_hat = self.amplitude_scaler * y[:, :3, :, :]  # amplitude
+        phs_hat = 2 * torch.pi * y[:, 3:, :, :]  # phase
+        return amp_hat, phs_hat
 
     def train_model(
         self,
@@ -95,9 +95,8 @@ class RGBD2AP(nn.Module):
             train_loss, n_train = 0.0, 0
             for img_depth, amp, phs in train_loader:
 
-                amp_phs_hat = model(img_depth)
-
-                l = self.loss(amp_phs_hat, amp, phs, alpha)
+                amp_hat, phs_hat = model(img_depth)
+                l = self.loss(amp_hat, phs_hat, amp, phs, alpha)
 
                 self.optimizer.zero_grad()
                 l.backward()
@@ -112,8 +111,8 @@ class RGBD2AP(nn.Module):
             for img_depth, amp, phs in val_loader:
 
                 with torch.no_grad():
-                    amp_phs_hat = model(img_depth)
-                    l = self.loss(amp_phs_hat, amp, phs, alpha)
+                    amp_hat, phs_hat = model(img_depth)
+                    l = self.loss(amp_hat, phs_hat, amp, phs, alpha)
 
                 test_loss += l.item()
                 n_test += img_depth.size(0)
@@ -139,13 +138,15 @@ class RGBD2AP(nn.Module):
 
     def loss(
         self,
-        amp_phs_hat,
+        amp_hat,
+        phs_hat,
         amp,
         phs,
         alpha,
     ):
         return amp_phs_loss(
-            amp_phs_hat,
+            amp_hat,
+            phs_hat,
             amp,
             2 * torch.pi * phs,
             alpha,
