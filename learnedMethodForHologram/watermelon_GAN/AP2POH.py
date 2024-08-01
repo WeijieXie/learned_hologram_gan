@@ -3,22 +3,22 @@ from torch import nn
 from torch.nn import functional as F
 from torch.optim.lr_scheduler import ReduceLROnPlateau
 
-from ..utilities import try_gpu
+from ..utilities import try_gpu, generate_checkerboard_mask
 
 from ..bandlimited_angular_spectrum_approach import (
     bandLimitedAngularSpectrumMethod_for_single_fixed_distance as fixed_distance_propogator,
 )
 from ..neural_network_components import (
-    ResNet,
+    miniUNet,
 )
 
-from .loss_func import amp_phs_loss
+from .loss_func import amp_phs_loss, total_variation
 
 
 class AP2POH(nn.Module):
     def __init__(
         self,
-        input_shape=(1, 6, 192, 192),
+        input_shape=(1, 3, 192, 192),
         pretrained_model_path=None,
         freeze=False,
         cuda=True,
@@ -30,6 +30,18 @@ class AP2POH(nn.Module):
         self.freeze = freeze
         self.device = try_gpu() if cuda else torch.device("cpu")
 
+        self.checkerboard_mask_1 = generate_checkerboard_mask(
+            input_shape[-2],
+            input_shape[-1],
+            True,
+        ).to(self.device)
+
+        self.checkerboard_mask_2 = generate_checkerboard_mask(
+            input_shape[-2],
+            input_shape[-1],
+            False,
+        ).to(self.device)
+
         self.propagator = fixed_distance_propogator(
             sample_row_num=input_shape[-2],
             sample_col_num=input_shape[-1],
@@ -40,7 +52,8 @@ class AP2POH(nn.Module):
             cuda=cuda,
             distance=torch.tensor([1e-3]),
         )
-        self.part1 = ResNet(output_channels=3).to(self.device)
+
+        self.part1 = miniUNet(output_channels=3).to(self.device)
 
         self._initialize_weights()
 
@@ -50,14 +63,34 @@ class AP2POH(nn.Module):
                 self.eval()
                 self.requires_grad_(False)
 
+    def double_phase_method(self, amp, phs):
+        acos_amp = torch.acos(amp)
+
+        phs_2pi = 2 * torch.pi * phs
+
+        phs_1 = phs_2pi + acos_amp
+        phs_2 = phs_2pi - acos_amp
+
+        POH = self.checkerboard_mask_1 * phs_1 + self.checkerboard_mask_2 * phs_2
+
+        return POH
+
+    def phs_sincos(self, phs):
+
+        sin_phs = torch.sin(phs)
+        cos_phs = torch.cos(phs)
+
+        return torch.cat((sin_phs, cos_phs), dim=-3)
+
     def forward(self, amp_z, phs_z):
         """
         take the 6 channels of amplitude and phase[0, 2pi] as input and output the 3 channels of phs
         """
 
-        amp_phs_0 = self.propagator.propagate_AP2AP_backward(amp_z, phs_z)
-        phs_0 = 2 * torch.pi * self.part1(amp_phs_0)
-        return phs_0
+        amp_0, phs_0 = self.propagator.propagate_AP2AP_backward(amp_z, phs_z)
+        amp_0_modified = self.part1(amp_0)
+        POH = self.double_phase_method(amp_0_modified, phs_0)
+        return POH
 
     def train_model(
         self,
@@ -65,7 +98,8 @@ class AP2POH(nn.Module):
         val_loader,
         epochs=30,
         lr=1e-3,
-        alpha=1e-2,
+        alpha=1e-3,
+        beta=1e-4,
         hyperparameter_gamma=0.1,
         save_path=None,
         checkpoint_iterval=10,
@@ -107,7 +141,9 @@ class AP2POH(nn.Module):
 
                 phs_hat = model(amp, phs)
                 amp_hat, phs_hat = self.propagator.propagate_POH2AP_forward(phs_hat)
-                l = self.loss(amp_hat, phs_hat, amp, phs, alpha)
+                l = self.loss(
+                    amp_hat, phs_hat, amp, phs, alpha
+                ) + beta * total_variation(self.phs_sincos(phs_hat))
 
                 self.optimizer.zero_grad()
                 l.backward()
@@ -122,10 +158,11 @@ class AP2POH(nn.Module):
             for amp, phs in val_loader:
 
                 with torch.no_grad():
-
                     phs_hat = model(amp, phs)
                     amp_hat, phs_hat = self.propagator.propagate_POH2AP_forward(phs_hat)
-                    l = self.loss(amp_hat, phs_hat, amp, phs, alpha)
+                    l = self.loss(
+                        amp_hat, phs_hat, amp, phs, alpha
+                    ) + beta * total_variation(self.phs_sincos(phs_hat))
 
                 test_loss += l.item()
                 n_test += phs_hat.size(0)
