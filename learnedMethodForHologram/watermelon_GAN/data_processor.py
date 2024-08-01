@@ -42,8 +42,10 @@ class data_loader_amp_phs_img_depth(Dataset):
 
         return (
             torch.cat(
-                torch.tensor(self.img[idx]).to(self.device),
-                torch.tensor(self.depth[idx][0]).to(self.device).unsqueeze(0),
+                (
+                    torch.tensor(self.img[idx]).to(self.device),
+                    torch.tensor(self.depth[idx][0]).to(self.device).unsqueeze(0),
+                ),
                 dim=0,
             ),
             torch.tensor(self.amp[idx]).to(self.device),
@@ -51,7 +53,7 @@ class data_loader_amp_phs_img_depth(Dataset):
         )
 
 
-class data_loader_amp_phs(Dataset):
+class data_loader_amp_2PIphs(Dataset):
     def __init__(
         self,
         amp_path,
