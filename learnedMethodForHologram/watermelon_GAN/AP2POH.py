@@ -50,12 +50,12 @@ class AP2POH(nn.Module):
         else:
             self._initialize_weights()
 
-    def forward(self, amp_phs_z):
+    def forward(self, amp_z, phs_z):
         """
         take the 6 channels of amplitude and phase[0, 2pi] as input and output the 3 channels of phs
         """
 
-        amp_phs_0 = self.propagator.propagate_AP2AP_backward(amp_phs_z)
+        amp_phs_0 = self.propagator.propagate_AP2AP_backward(amp_z, phs_z)
         phs_0 = 2 * torch.pi * self.part1(amp_phs_0)
         return phs_0
 
@@ -106,9 +106,8 @@ class AP2POH(nn.Module):
             for amp, phs in train_loader:
 
                 phs_hat = model(torch.cat((amp, phs), dim=1))
-                amp_phs_hat = self.propagator.propagate_POH2AP_forward(phs_hat)
-
-                l = self.loss(amp_phs_hat, amp, phs, alpha)
+                amp_hat, phs_hat = self.propagator.propagate_POH2AP_forward(phs_hat)
+                l = self.loss(amp_hat, phs_hat, amp, phs, alpha)
 
                 self.optimizer.zero_grad()
                 l.backward()
@@ -125,9 +124,8 @@ class AP2POH(nn.Module):
                 with torch.no_grad():
 
                     phs_hat = model(torch.cat((amp, phs), dim=1))
-                    amp_phs_hat = self.propagator.propagate_POH2AP_forward(phs_hat)
-
-                    l = self.loss(amp_phs_hat, amp, phs, alpha)
+                    amp_hat, phs_hat = self.propagator.propagate_POH2AP_forward(phs_hat)
+                    l = self.loss(amp_hat, phs_hat, amp, phs, alpha)
 
                 test_loss += l.item()
                 n_test += phs_hat.size(0)
@@ -153,15 +151,17 @@ class AP2POH(nn.Module):
 
     def loss(
         self,
-        amp_phs_hat,
+        amp_hat,
+        phs_hat,
         amp,
         phs,
         alpha,
     ):
         return amp_phs_loss(
-            amp_phs_hat,
+            amp_hat,
+            phs_hat,
             amp,
-            2 * torch.pi * phs,
+            phs,
             alpha,
         )
 
