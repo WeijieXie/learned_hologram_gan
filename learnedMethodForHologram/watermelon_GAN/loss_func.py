@@ -23,16 +23,14 @@ def total_variation_loss(y_hat, y):
     return total_variation(y_hat) - total_variation(y)
 
 
-def amp_phs_loss(amp_phs_hat, amp, phs, alpha=1.0):
+def amp_phs_loss(amp_hat, phs_hat, amp, phs, alpha=1.0):
     """
     The input phase is in the range of [0, 2*pi].
     """
-    sin_phs_hat = torch.sin(amp_phs_hat[:, 3:, :, :])
-    cos_phs_hat = torch.cos(amp_phs_hat[:, 3:, :, :])
-    amp_sincos_phs_hat = torch.cat(
-        (amp_phs_hat[:, :3], sin_phs_hat, cos_phs_hat), dim=1
-    )
 
+    amp_sincos_phs_hat = torch.cat(
+        (amp_hat, torch.sin(phs_hat), torch.cos(phs_hat)), dim=1
+    )
     amp_sincos_phs = torch.cat((amp, torch.sin(phs), torch.cos(phs)), dim=1)
 
     loss_l2 = F.mse_loss(amp_sincos_phs_hat, amp_sincos_phs)
