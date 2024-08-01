@@ -83,12 +83,9 @@ class AP2POH(nn.Module):
         return torch.cat((sin_phs, cos_phs), dim=-3)
 
     def forward(self, amp_z, phs_z):
-        """
-        take the 6 channels of amplitude and phase[0, 2pi] as input and output the 3 channels of phs
-        """
 
         amp_0, phs_0 = self.propagator.propagate_AP2AP_backward(amp_z, phs_z)
-        amp_0_modified = self.part1(amp_0)
+        amp_0_modified = self.part1(amp_0) - 0.5
         POH = self.double_phase_method(amp_0_modified, phs_0)
         return POH
 
