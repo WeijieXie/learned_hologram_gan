@@ -100,6 +100,59 @@ class ResNet_POH(ResNet):
         return 2 * torch.pi * super(ResNet_POH, self).forward(X)
 
 
+class miniUNet(nn.Module):
+    def __init__(self, output_channels=1):
+        super(miniUNet, self).__init__()
+
+        self.output_channels = output_channels
+        # Encoder
+        self.encoder1 = nn.Sequential(
+            self.conv_block(16),
+        )
+
+        self.encoder2 = nn.Sequential(
+            nn.MaxPool2d(kernel_size=2, stride=2),
+            self.conv_block(32),
+        )
+
+        # Bottleneck
+        self.bottleneck = nn.Sequential(
+            nn.MaxPool2d(kernel_size=2, stride=2),
+            self.conv_block(64),
+            nn.LazyConvTranspose2d(32, kernel_size=2, stride=2),
+        )
+
+        # Decoder
+        self.decoder1 = nn.Sequential(
+            self.conv_block(32),
+            nn.LazyConvTranspose2d(16, kernel_size=2, stride=2),
+        )
+
+        self.decoder2 = self.conv_block(16)
+
+        # Final layer
+        self.final_layer = nn.Sequential(
+            nn.LazyConv2d(self.output_channels, kernel_size=1),
+            nn.Sigmoid(),  # to ensure the output is in the range of [0, 1]
+        )
+
+    def conv_block(self, out_channels):
+        return nn.Sequential(
+            ResidualBlock(out_channels, use_1x1conv=True),
+        )
+
+    def forward(self, X):
+        encoder1 = self.encoder1(X)
+        encoder2 = self.encoder2(encoder1)
+
+        bottleneck = self.bottleneck(encoder2)
+
+        decoder1 = self.decoder1(torch.cat((encoder2, bottleneck), dim=1))
+        decoder2 = self.decoder2(torch.cat((encoder1, decoder1), dim=1))
+
+        return self.final_layer(decoder2)
+
+
 class UNet(nn.Module):
     def __init__(self, output_channels=6):
         super(UNet, self).__init__()
@@ -187,7 +240,9 @@ class UNet_imgDepth2AP_deprecated_v1(UNet):
 
 class UNet_imgDepth2AP_heavyweight_deprecated_v1(UNet_imgDepth2AP_deprecated_v1):
     def __init__(self, output_channels=6):
-        super(UNet_imgDepth2AP_heavyweight_deprecated_v1, self).__init__(output_channels)
+        super(UNet_imgDepth2AP_heavyweight_deprecated_v1, self).__init__(
+            output_channels
+        )
 
     def conv_block(self, out_channels):
         return nn.Sequential(
@@ -207,7 +262,9 @@ class UNet_imgDepth2AP_deprecated_v2(UNet):
 
 class UNet_imgDepth2AP_heavyweight_deprecated_v2(UNet_imgDepth2AP_deprecated_v2):
     def __init__(self, output_channels=6):
-        super(UNet_imgDepth2AP_heavyweight_deprecated_v2, self).__init__(output_channels)
+        super(UNet_imgDepth2AP_heavyweight_deprecated_v2, self).__init__(
+            output_channels
+        )
 
     def conv_block(self, out_channels):
         return nn.Sequential(
