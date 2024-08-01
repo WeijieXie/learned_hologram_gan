@@ -32,13 +32,13 @@ class RGBD2AP(nn.Module):
         # a UNet whose input is RGBD and output is amplitude(0~1) and phase(0~1)
         self.part1 = UNet(output_channels=6).to(self.device)
 
+        self._initialize_weights()
+
         if self.pretrained_model_path is not None:
             self.load_state_dict(torch.load(self.pretrained_model_path))
             if freeze:
                 self.eval()
                 self.requires_grad_(False)
-        else:
-            self._initialize_weights()
 
     def forward(self, RGBD):
         """
