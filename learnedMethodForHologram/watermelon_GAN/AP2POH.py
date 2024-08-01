@@ -105,7 +105,7 @@ class AP2POH(nn.Module):
             train_loss, n_train = 0.0, 0
             for amp, phs in train_loader:
 
-                phs_hat = model(torch.cat((amp, phs), dim=1))
+                phs_hat = model(amp, phs)
                 amp_hat, phs_hat = self.propagator.propagate_POH2AP_forward(phs_hat)
                 l = self.loss(amp_hat, phs_hat, amp, phs, alpha)
 
@@ -123,7 +123,7 @@ class AP2POH(nn.Module):
 
                 with torch.no_grad():
 
-                    phs_hat = model(torch.cat((amp, phs), dim=1))
+                    phs_hat = model(amp, phs)
                     amp_hat, phs_hat = self.propagator.propagate_POH2AP_forward(phs_hat)
                     l = self.loss(amp_hat, phs_hat, amp, phs, alpha)
 
@@ -168,7 +168,7 @@ class AP2POH(nn.Module):
     def _initialize_weights(self):
         # Initialize weights by running a dummy forward pass
         dummy_input = torch.randn(*self.input_shape).to(self.device)
-        _ = self.forward(torch.abs(dummy_input))
+        _ = self.part1(torch.abs(dummy_input))
 
         for m in self.modules():
             if isinstance(m, (nn.Conv2d, nn.LazyConv2d)):
