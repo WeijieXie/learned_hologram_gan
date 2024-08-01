@@ -33,10 +33,10 @@ class RGBD2AP(nn.Module):
         self.part1 = UNet(output_channels=6).to(self.device)
 
         if self.pretrained_model_path is not None:
-            self.part1.load_state_dict(torch.load(self.pretrained_model_path))
+            self.load_state_dict(torch.load(self.pretrained_model_path))
             if freeze:
-                self.part1.eval()
-                self.part1.requires_grad_(False)
+                self.eval()
+                self.requires_grad_(False)
         else:
             self._initialize_weights()
 
