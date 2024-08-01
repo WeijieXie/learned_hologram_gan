@@ -425,7 +425,7 @@ class bandLimitedAngularSpectrumMethod_for_single_fixed_distance(
         """
         G_z = torch.fft.fft2(self.padding(amp_z * torch.exp(1j * phs_z)))
         g_0 = self.cropping(torch.fft.ifft2(G_z / self.H))
-        return torch.cat((torch.abs(g_0), torch.angle(g_0)), dim=1)
+        return torch.abs(g_0), torch.angle(g_0)
 
     def propagate_POH2AP_forward(
         self,
