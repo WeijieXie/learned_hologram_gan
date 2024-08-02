@@ -53,6 +53,40 @@ class FourierBlock(nn.Module):
         return spatial_part + fourier_part
 
 
+class miniResNet(nn.Module):
+    def __init__(self, output_channels=3):
+        super(miniResNet, self).__init__()
+        self.output_channels = output_channels
+        self.net = nn.Sequential(
+            self.part_1(),  # conv
+            self.part_2(),  # residual blocks
+            self.part_3(),  # global pooling and dense layer
+        )
+
+    def part_1(self):
+        return nn.Sequential(
+            nn.LazyConv2d(32, kernel_size=7, stride=1, padding=3),
+            nn.LazyBatchNorm2d(),
+            nn.ReLU(),  # remove pooling layer to keep the same shape
+        )
+
+    def part_2(self):
+        return nn.Sequential(
+            ResidualBlock(32),
+            ResidualBlock(32),
+            ResidualBlock(64, use_1x1conv=True, strides=1),
+            ResidualBlock(64),
+        )
+
+    def part_3(self):
+        return nn.Sequential(
+            nn.LazyConv2d(out_channels=self.output_channels, kernel_size=1),
+            nn.Sigmoid(),
+        )
+
+    def forward(self, X):
+        return self.net(X)
+
 class ResNet(nn.Module):
     def __init__(self, output_channels=3):
         super(ResNet, self).__init__()
