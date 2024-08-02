@@ -58,7 +58,7 @@ class AP2POH(nn.Module):
 
         self.part1 = miniResNet(output_channels=3).to(self.device)
         self.filter_radius_coefficient = nn.Parameter(
-            torch.tensor([0.5]), requires_grad=True
+            torch.tensor([0.25]), requires_grad=True
         ).to(self.device)
 
         self._initialize_weights()
@@ -72,10 +72,10 @@ class AP2POH(nn.Module):
     def double_phase_method(self, amp, phs):
         acos_amp = torch.acos(amp)
 
-        phs_2pi = 2 * torch.pi * phs
+        # phs_2pi = 2 * torch.pi * phs
 
-        phs_1 = phs_2pi + acos_amp
-        phs_2 = phs_2pi - acos_amp
+        phs_1 = phs + acos_amp
+        phs_2 = phs - acos_amp
 
         POH = self.checkerboard_mask_1 * phs_1 + self.checkerboard_mask_2 * phs_2
 
@@ -91,12 +91,12 @@ class AP2POH(nn.Module):
     def forward(self, amp_z, phs_z):
 
         amp_0, phs_0 = self.propagator.propagate_AP2AP_backward(amp_z, phs_z)
-        amp_0_modified = self.part1(amp_0) - 0.5
+        modified_amp = self.part1(torch.cat(amp_0, self.phs_sincos(phs_0)), dim=-3)
 
         # amp_0 = torch.clamp(torch.abs(amp_0), 0, 1)
         # phs_0 = phs_0 / (2 * torch.pi)
 
-        POH = self.double_phase_method(amp_0_modified, phs_0)
+        POH = self.double_phase_method(modified_amp, phs_0)
         return POH
 
     def train_model(
@@ -183,7 +183,7 @@ class AP2POH(nn.Module):
             self.train_loss.append(average_train_loss)
             self.test_loss.append(average_test_loss)
             print(
-                f"epoch {epoch + 1}, train loss {average_train_loss:.7f}, test loss {average_test_loss:.7f}"
+                f"epoch {epoch + 1}, train loss {average_train_loss:.7f}, test loss {average_test_loss:.7f},filter_radius_coefficient {self.filter_radius_coefficient.item()}"
             )
 
             # update learning rate
