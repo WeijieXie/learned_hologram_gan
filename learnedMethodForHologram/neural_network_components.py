@@ -41,6 +41,19 @@ class ResidualBlock(nn.Module):
         return F.relu(Y)
 
 
+class ResidualBlock_sigmoid(ResidualBlock):
+    def __init__(self, num_channels, use_1x1conv=False, strides=1):
+        super(ResidualBlock_sigmoid, self).__init__(num_channels, use_1x1conv, strides)
+
+    def forward(self, X):
+        Y = F.relu(self.batch_norm_layer_1(self.convolution_layer_1(X)))
+        Y = self.batch_norm_layer_2(self.convolution_layer_2(Y))
+        if self.convolution_layer_3:
+            X = self.convolution_layer_3(X)
+        Y += X
+        return F.sigmoid(Y)
+
+
 class FourierBlock(nn.Module):
     def __init__(self, num_channels):
         super(FourierBlock, self).__init__()
@@ -86,6 +99,7 @@ class miniResNet(nn.Module):
 
     def forward(self, X):
         return self.net(X)
+
 
 class ResNet(nn.Module):
     def __init__(self, output_channels=3):

@@ -10,6 +10,7 @@ from ..bandlimited_angular_spectrum_approach import (
 )
 from ..neural_network_components import (
     miniUNet,
+    ResidualBlock_sigmoid,
 )
 
 from .loss_func import amp_phs_loss, total_variation
@@ -53,7 +54,7 @@ class AP2POH(nn.Module):
             distance=torch.tensor([1e-3]),
         )
 
-        self.part1 = miniUNet(output_channels=3).to(self.device)
+        self.part1 = ResidualBlock_sigmoid(output_channels=3).to(self.device)
 
         self._initialize_weights()
 
