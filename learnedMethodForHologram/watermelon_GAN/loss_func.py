@@ -15,6 +15,19 @@ def total_variation(tensor):
 
     return loss
 
+def total_variation_for_POH(tensor):
+    """
+    designed for POH
+    """
+
+    diff1 = tensor[:, :, :, 2:] - tensor[:, :, :, :-2]
+    diff2 = tensor[:, :, 2:, :] - tensor[:, :, :-2, :]
+
+    # Compute the total variation
+    loss = torch.mean(torch.abs(diff1)) + torch.mean(torch.abs(diff2))
+
+    return loss
+
 
 def total_variation_loss(y_hat, y):
     """
