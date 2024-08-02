@@ -10,4 +10,5 @@ from . import (
     watermelon_v4,
     perceptual_loss,
     watermelon_GAN,
+    metrics,
 )
