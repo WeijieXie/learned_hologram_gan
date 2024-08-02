@@ -91,7 +91,7 @@ class AP2POH(nn.Module):
     def forward(self, amp_z, phs_z):
 
         amp_0, phs_0 = self.propagator.propagate_AP2AP_backward(amp_z, phs_z)
-        modified_amp = self.part1(torch.cat(amp_0, self.phs_sincos(phs_0)), dim=-3)
+        modified_amp = self.part1(amp_0) + amp_0
 
         # amp_0 = torch.clamp(torch.abs(amp_0), 0, 1)
         # phs_0 = phs_0 / (2 * torch.pi)
