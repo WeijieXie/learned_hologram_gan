@@ -316,6 +316,18 @@ def generate_circular_frequency_mask(
 
     return mask
 
+def prepare_circular_frequency_mask_differentiable_grid(
+        samplingRowNum,
+        samplingColNum,
+    ):
+        shorter_edge = min(samplingRowNum, samplingColNum)
+
+        # Create a grid of (u, v) coordinates
+        u = torch.fft.fftfreq(samplingRowNum).unsqueeze(-1)
+        v = torch.fft.fftfreq(samplingColNum).unsqueeze(0)
+        D = torch.sqrt(u**2 + v**2) * shorter_edge
+        return D
+
 
 def generate_square_frequency_mask(
     sample_row_num=192,
@@ -360,15 +372,23 @@ def mask_generator(
     return mask
 
 
-def generate_checkerboard_mask(sample_row_num=192, sample_col_num=192, reversed=False):
-    checkerboard = torch.zeros((sample_row_num, sample_col_num), dtype=torch.float32)
-    if reversed:
-        checkerboard[::2, ::2] = 1
-        checkerboard[1::2, 1::2] = 1
-    else:
-        checkerboard[1::2, ::2] = 1
-        checkerboard[::2, 1::2] = 1
-    return checkerboard
+def generate_checkerboard_mask(
+    height=192,
+    width=192,
+    cell_size=4,
+    reserve=False,
+):
+    x = np.arange(width).reshape(1, -1) // cell_size
+    y = np.arange(height).reshape(-1, 1) // cell_size
+    checkerboard_np = (x + y) % 2
+    checkerboard_np = checkerboard_np.astype(np.float32)
+
+    checkerboard_torch = torch.tensor(checkerboard_np)
+
+    if reserve:
+        checkerboard_torch = 1 - checkerboard_torch
+
+    return checkerboard_torch
 
 
 def set_seed(seed):
