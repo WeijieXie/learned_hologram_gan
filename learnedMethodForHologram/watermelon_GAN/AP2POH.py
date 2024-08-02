@@ -9,11 +9,11 @@ from ..bandlimited_angular_spectrum_approach import (
     bandLimitedAngularSpectrumMethod_for_single_fixed_distance as fixed_distance_propogator,
 )
 from ..neural_network_components import (
-    miniUNet,
     ResidualBlock_sigmoid,
+    miniResNet,
 )
 
-from .loss_func import amp_phs_loss, total_variation
+from .loss_func import amp_phs_loss, total_variation_for_POH
 
 
 class AP2POH(nn.Module):
@@ -34,19 +34,21 @@ class AP2POH(nn.Module):
         self.checkerboard_mask_1 = generate_checkerboard_mask(
             input_shape[-2],
             input_shape[-1],
+            1,
             True,
         ).to(self.device)
 
         self.checkerboard_mask_2 = generate_checkerboard_mask(
             input_shape[-2],
             input_shape[-1],
+            1,
             False,
         ).to(self.device)
 
         self.propagator = fixed_distance_propogator(
             sample_row_num=input_shape[-2],
             sample_col_num=input_shape[-1],
-            pad_size=96,
+            pad_size=192,
             pixel_pitch=3.74e-6,
             wave_length=torch.tensor([638e-9, 520e-9, 450e-9]),
             band_limit=False,
@@ -54,7 +56,10 @@ class AP2POH(nn.Module):
             distance=torch.tensor([1e-3]),
         )
 
-        self.part1 = ResidualBlock_sigmoid(output_channels=3).to(self.device)
+        self.part1 = miniResNet(output_channels=3).to(self.device)
+        self.filter_radius_coefficient = nn.Parameter(
+            torch.tensor([0.5]), requires_grad=True
+        ).to(self.device)
 
         self._initialize_weights()
 
@@ -87,6 +92,10 @@ class AP2POH(nn.Module):
 
         amp_0, phs_0 = self.propagator.propagate_AP2AP_backward(amp_z, phs_z)
         amp_0_modified = self.part1(amp_0) - 0.5
+
+        # amp_0 = torch.clamp(torch.abs(amp_0), 0, 1)
+        # phs_0 = phs_0 / (2 * torch.pi)
+
         POH = self.double_phase_method(amp_0_modified, phs_0)
         return POH
 
@@ -97,7 +106,7 @@ class AP2POH(nn.Module):
         epochs=30,
         lr=1e-3,
         alpha=1e-3,
-        beta=1e-4,
+        beta=1e-5,
         hyperparameter_gamma=0.1,
         save_path=None,
         checkpoint_iterval=10,
@@ -138,10 +147,12 @@ class AP2POH(nn.Module):
             for amp, phs in train_loader:
 
                 phs_hat = model(amp, phs)
-                amp_hat, phs_hat = self.propagator.propagate_POH2AP_forward(phs_hat)
+                amp_hat, phs_hat = self.propagator.propagate_POH2AP_forward(
+                    phs_hat, self.filter_radius_coefficient
+                )
                 l = self.loss(
                     amp_hat, phs_hat, amp, phs, alpha
-                ) + beta * total_variation(self.phs_sincos(phs_hat))
+                ) + beta * total_variation_for_POH(self.phs_sincos(phs_hat))
 
                 self.optimizer.zero_grad()
                 l.backward()
@@ -157,10 +168,12 @@ class AP2POH(nn.Module):
 
                 with torch.no_grad():
                     phs_hat = model(amp, phs)
-                    amp_hat, phs_hat = self.propagator.propagate_POH2AP_forward(phs_hat)
+                    amp_hat, phs_hat = self.propagator.propagate_POH2AP_forward(
+                        phs_hat, self.filter_radius_coefficient
+                    )
                     l = self.loss(
                         amp_hat, phs_hat, amp, phs, alpha
-                    ) + beta * total_variation(self.phs_sincos(phs_hat))
+                    ) + beta * total_variation_for_POH(self.phs_sincos(phs_hat))
 
                 test_loss += l.item()
                 n_test += phs_hat.size(0)
