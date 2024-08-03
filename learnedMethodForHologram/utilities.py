@@ -115,6 +115,13 @@ def cut_center_256_192(tensor_256):
     return tensor_192
 
 
+def amplitude_normalizor(amp):
+    max, _ = torch.max(amp, dim=-1, keepdim=True)
+    max, _ = torch.max(max, dim=-2, keepdim=True)
+    amp = amp / (max * 1.01)
+    return amp
+
+
 def tensor_normalizor_2D(intensity):
     """
     Normalize the 2-D intensity tensor to 0-255
@@ -316,17 +323,18 @@ def generate_circular_frequency_mask(
 
     return mask
 
-def prepare_circular_frequency_mask_differentiable_grid(
-        samplingRowNum,
-        samplingColNum,
-    ):
-        shorter_edge = min(samplingRowNum, samplingColNum)
 
-        # Create a grid of (u, v) coordinates
-        u = torch.fft.fftfreq(samplingRowNum).unsqueeze(-1)
-        v = torch.fft.fftfreq(samplingColNum).unsqueeze(0)
-        D = torch.sqrt(u**2 + v**2) * shorter_edge
-        return D
+def prepare_circular_frequency_mask_differentiable_grid(
+    samplingRowNum,
+    samplingColNum,
+):
+    shorter_edge = min(samplingRowNum, samplingColNum)
+
+    # Create a grid of (u, v) coordinates
+    u = torch.fft.fftfreq(samplingRowNum).unsqueeze(-1)
+    v = torch.fft.fftfreq(samplingColNum).unsqueeze(0)
+    D = torch.sqrt(u**2 + v**2) * shorter_edge
+    return D
 
 
 def generate_square_frequency_mask(
