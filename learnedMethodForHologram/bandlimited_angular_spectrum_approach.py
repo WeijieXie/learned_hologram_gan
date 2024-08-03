@@ -429,6 +429,18 @@ class bandLimitedAngularSpectrumMethod_for_single_fixed_distance(
         G_z = torch.fft.fft2(self.padding(amp_z * torch.exp(1j * phs_z)))
         g_0 = self.cropping(torch.fft.ifft2(G_z / self.H))
         return torch.abs(g_0), torch.angle(g_0)
+    
+    def propagate_AP2C_backward(
+        self,
+        amp_z,
+        phs_z,
+    ):
+        """
+        For GAN
+        """
+        G_z = torch.fft.fft2(self.padding(amp_z * torch.exp(1j * phs_z)))
+        g_0 = self.cropping(torch.fft.ifft2(G_z / self.H))
+        return g_0
 
     def propagate_POH2AP_forward(
         self,
@@ -439,17 +451,16 @@ class bandLimitedAngularSpectrumMethod_for_single_fixed_distance(
         For GAN
         """
         G_0 = torch.fft.fft2(self.padding(torch.exp(1j * phs_0)))
-        # because of the direction of the propagation
-        g_z = self.cropping(
-            torch.fft.ifft2(
-                G_0
-                * self.H
-                * self.generate_circular_frequency_mask_differentiable(
-                    filter_radius_coefficient
-                )
+        G_z_filtered = (
+            G_0
+            * self.H
+            * self.generate_circular_frequency_mask_differentiable(
+                filter_radius_coefficient
             )
         )
-        return torch.abs(g_z), torch.angle(g_z)
+        spectrum_mean_loss = torch.mean(torch.abs(G_0) - torch.abs(G_z_filtered))
+        g_z = self.cropping(torch.fft.ifft2(G_z_filtered))
+        return torch.abs(g_z), torch.angle(g_z), spectrum_mean_loss
 
     def propagate_AP2AP_forward(
         self,
@@ -461,6 +472,7 @@ class bandLimitedAngularSpectrumMethod_for_single_fixed_distance(
         For GAN
         """
         G_0 = torch.fft.fft2(self.padding(amp_0 * torch.exp(1j * phs_0)))
+
         # because of the direction of the propagation
         g_z = self.cropping(
             torch.fft.ifft2(
@@ -480,7 +492,7 @@ class bandLimitedAngularSpectrumMethod_for_single_fixed_distance(
         shorter_edge = min(self.samplingRowNum, self.samplingColNum)
         radius = shorter_edge * filter_radius_coefficient
         mask = torch.sigmoid(
-            10 * (radius - self.circular_frequency_mask_differentiable_grid)
+            1.0 * (radius - self.circular_frequency_mask_differentiable_grid)
         )
 
         return mask
