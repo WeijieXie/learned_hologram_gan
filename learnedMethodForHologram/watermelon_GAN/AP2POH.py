@@ -20,6 +20,7 @@ from .loss_func import amp_phs_loss, total_variation_for_POH
 class AP2POH(nn.Module):
     def __init__(
         self,
+        filter_radius_coefficient=0.45,
         input_shape=(1, 6, 192, 192),
         pretrained_model_path=None,
         freeze=False,
@@ -59,7 +60,9 @@ class AP2POH(nn.Module):
 
         self.part1 = miniResNet(output_channels=6).to(self.device)
         self.filter_radius_coefficient = nn.Parameter(
-            torch.tensor([0.45], requires_grad=True, device=self.device),
+            torch.tensor(
+                [filter_radius_coefficient], requires_grad=True, device=self.device
+            ),
             requires_grad=True,
         )
 
