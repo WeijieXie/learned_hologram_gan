@@ -217,7 +217,7 @@ class watermelon_gan:
                     if i % info_print_interval == 0:
                         print(
                             f"epoch {epoch}, batch {i + 1}:\n"
-                            f"train: freq_loss {self.train_losses_tensor[0]}, perceptual_loss {self.train_losses_tensor[1]}, pixel_loss {self.train_losses_tensor[2]}, TV_loss {self.train_losses_tensor[3]}, G_loss {self.train_losses_tensor[4]}, D_loss {self.train_losses_tensor[5]}"
+                            # f"train: freq_loss {self.train_losses_tensor[0]}, perceptual_loss {self.train_losses_tensor[1]}, pixel_loss {self.train_losses_tensor[2]}, TV_loss {self.train_losses_tensor[3]}, G_loss {self.train_losses_tensor[4]}, D_loss {self.train_losses_tensor[5]}"
                         )
                         if visualization_RGBD_AP is not None:
                             RGBD, target_amp, target_phs = visualization_RGBD_AP
