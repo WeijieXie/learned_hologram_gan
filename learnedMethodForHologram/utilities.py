@@ -324,7 +324,27 @@ def generate_circular_frequency_mask(
     return mask
 
 
-def prepare_circular_frequency_mask_differentiable_grid(
+def generate_circular_frequency_mask_modified(
+    sample_row_num=192,
+    sample_col_num=192,
+    filter_radius_coefficient=0.5,
+):
+
+    shorter_edge = min(sample_row_num, sample_col_num)
+    radius = shorter_edge * filter_radius_coefficient
+
+    # Create a grid of (u, v) coordinates
+    u = torch.fft.fftfreq(sample_row_num).unsqueeze(-1)
+    v = torch.fft.fftfreq(sample_col_num).unsqueeze(0)
+    D = torch.sqrt(u**2 + v**2) * shorter_edge
+
+    mask = torch.ones_like(D)
+    mask[D > radius] = 0.0
+
+    return mask
+
+
+def prepare_circular_frequency_mask_grid(
     samplingRowNum,
     samplingColNum,
 ):

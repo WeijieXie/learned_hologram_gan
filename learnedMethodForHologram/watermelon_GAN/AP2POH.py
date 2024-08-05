@@ -14,17 +14,21 @@ from ..neural_network_components import (
     miniResNet,
 )
 
-from .loss_func import amp_phs_loss, total_variation_for_POH
+from .loss_func import amp_loss
 
 
 class AP2POH(nn.Module):
     def __init__(
         self,
-        filter_radius_coefficient=0.45,
         input_shape=(1, 6, 192, 192),
         pretrained_model_path=None,
         freeze=False,
         cuda=True,
+        pad_size=192,
+        filter_radius_coefficient=0.5,
+        pixel_pitch=3.74e-6,
+        wave_length=torch.tensor([638e-9, 520e-9, 450e-9]),
+        distance=torch.tensor([1e-3]),
     ):
         super(AP2POH, self).__init__()
 
@@ -50,21 +54,26 @@ class AP2POH(nn.Module):
         self.propagator = fixed_distance_propogator(
             sample_row_num=input_shape[-2],
             sample_col_num=input_shape[-1],
-            pad_size=192,
-            pixel_pitch=3.74e-6,
-            wave_length=torch.tensor([638e-9, 520e-9, 450e-9]),
+            pad_size=pad_size,
+            filter_radius_coefficient=filter_radius_coefficient,
+            pixel_pitch=pixel_pitch,
+            wave_length=wave_length,
+            # pad_size=192,
+            # pixel_pitch=3.74e-6,
+            # wave_length=torch.tensor([638e-9, 520e-9, 450e-9]),
             band_limit=False,
             cuda=cuda,
-            distance=torch.tensor([1e-3]),
+            distance=distance,
+            # distance=torch.tensor([1e-3]),
         )
 
         self.part1 = miniResNet(output_channels=6).to(self.device)
-        self.filter_radius_coefficient = nn.Parameter(
-            torch.tensor(
-                [filter_radius_coefficient], requires_grad=True, device=self.device
-            ),
-            requires_grad=True,
-        )
+        # self.filter_radius_coefficient = nn.Parameter(
+        #     torch.tensor(
+        #         [filter_radius_coefficient], requires_grad=True, device=self.device
+        #     ),
+        #     requires_grad=True,
+        # )
 
         self._initialize_weights()
 
@@ -73,15 +82,15 @@ class AP2POH(nn.Module):
             if freeze:
                 self.eval()
                 self.requires_grad_(False)
-        else:
-            self.filter_radius_coefficient.requires_grad_(False)
+        # else:
+        #     self.filter_radius_coefficient.requires_grad_(False)
 
-    def dataloader_filter(self, amp, phs):
+    def dataloader_filter(self, amp, phs, filter_radius_coefficient):
         g_filtered = self.propagator.cropping(
             torch.fft.ifft2(
                 torch.fft.fft2(self.propagator.padding(amp * torch.exp(1j * phs)))
                 * self.propagator.generate_circular_frequency_mask_differentiable(
-                    self.filter_radius_coefficient
+                    filter_radius_coefficient
                 )
             )
         )
@@ -127,6 +136,7 @@ class AP2POH(nn.Module):
         self,
         train_loader,
         val_loader,
+        filter_radius_coefficient=0.45,
         epochs=30,
         lr=1e-3,
         alpha=1e-3,
@@ -172,15 +182,15 @@ class AP2POH(nn.Module):
             train_loss, n_train = 0.0, 0
 
             for amp, phs in train_loader:
-                amp, phs = self.dataloader_filter(amp, phs)
+                amp, phs = self.dataloader_filter(amp, phs, filter_radius_coefficient)
 
                 phs_hat = model(amp, phs)
                 amp_hat, phs_hat, spectrum_loss = (
-                    self.propagator.propagate_POH2AP_forward(
-                        phs_hat, self.filter_radius_coefficient
+                    self.propagator.propagate_POH2AP_forward_with_spectrum_loss(
+                        phs_hat, filter_radius_coefficient
                     )
                 )
-                l = self.loss(amp_hat, phs_hat, amp, phs, alpha) + beta * spectrum_loss
+                l = self.loss(amp_hat, amp, alpha) + beta * spectrum_loss
 
                 self.optimizer.zero_grad()
                 l.backward()
@@ -194,19 +204,16 @@ class AP2POH(nn.Module):
             model.eval()
             test_loss, n_test = 0.0, 0
             for amp, phs in val_loader:
-                amp, phs = self.dataloader_filter(amp, phs)
+                amp, phs = self.dataloader_filter(amp, phs, filter_radius_coefficient)
 
                 with torch.no_grad():
                     phs_hat = model(amp, phs)
                     amp_hat, phs_hat, spectrum_loss = (
-                        self.propagator.propagate_POH2AP_forward(
-                            phs_hat, self.filter_radius_coefficient
+                        self.propagator.propagate_POH2AP_forward_with_spectrum_loss(
+                            phs_hat, filter_radius_coefficient
                         )
                     )
-                    l = (
-                        self.loss(amp_hat, phs_hat, amp, phs, alpha)
-                        + beta * spectrum_loss
-                    )
+                    l = self.loss(amp_hat, amp, alpha) + beta * spectrum_loss
 
                 test_loss += l.item()
                 n_test += phs_hat.size(0)
@@ -216,7 +223,7 @@ class AP2POH(nn.Module):
             self.train_loss.append(average_train_loss)
             self.test_loss.append(average_test_loss)
             print(
-                f"epoch {epoch + 1}, train loss {average_train_loss:.7f}, test loss {average_test_loss:.7f},filter_radius_coefficient {self.filter_radius_coefficient.item()},gradient {xxx}"
+                f"epoch {epoch + 1}, train loss {average_train_loss:.7f}, test loss {average_test_loss:.7f},filter_radius_coefficient {filter_radius_coefficient.item()},gradient {xxx}"
             )
 
             # update learning rate
@@ -233,16 +240,12 @@ class AP2POH(nn.Module):
     def loss(
         self,
         amp_hat,
-        phs_hat,
         amp,
-        phs,
         alpha,
     ):
-        return amp_phs_loss(
+        return amp_loss(
             amp_hat,
-            phs_hat,
             amp,
-            phs,
             alpha,
         )
 

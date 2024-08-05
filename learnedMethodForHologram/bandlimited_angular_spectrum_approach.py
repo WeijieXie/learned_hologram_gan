@@ -32,6 +32,7 @@ class bandLimitedAngularSpectrumMethod:
         sample_row_num=192,
         sample_col_num=192,
         pad_size=0,
+        filter_radius_coefficient=0.5,
         pixel_pitch=3.74e-6,
         wave_length=torch.tensor([639e-9, 515e-9, 473e-9]),
         band_limit=False,
@@ -41,7 +42,10 @@ class bandLimitedAngularSpectrumMethod:
         self.originalRowNum = sample_row_num
         self.originalColNum = sample_col_num
         self.samplingRowNum = sample_row_num + 2 * pad_size
-        self.samplingColNum = sample_col_num + 2 * pad_size
+        self.samplingColNum = sample_col_num + 2 * pad_size * (
+            sample_col_num // sample_row_num
+        )
+
         self.pad_size = pad_size
         self.pixel_pitch = pixel_pitch
         self.wave_length = wave_length
@@ -52,9 +56,9 @@ class bandLimitedAngularSpectrumMethod:
         self.freq_y = torch.fft.fftfreq(self.samplingColNum, self.pixel_pitch)
 
         # simulate the imaging system
-        self.diffraction_limited_mask = self.generate_diffraction_limited_mask(0.5).to(
-            self.device
-        )
+        self.diffraction_limited_mask = self.generate_diffraction_limited_mask(
+            filter_radius_coefficient
+        ).to(self.device)
         self.w_grid = self.generate_w_grid().to(self.device)
 
         if band_limit:
@@ -282,6 +286,7 @@ class bandLimitedAngularSpectrumMethod_for_single_fixed_distance(
         sample_row_num=192,
         sample_col_num=192,
         pad_size=0,
+        filter_radius_coefficient=0.5,
         pixel_pitch=3.74e-6,
         wave_length=torch.tensor([639e-9, 515e-9, 473e-9]),
         band_limit=False,
@@ -294,6 +299,7 @@ class bandLimitedAngularSpectrumMethod_for_single_fixed_distance(
             sample_row_num,
             sample_col_num,
             pad_size,
+            filter_radius_coefficient,
             pixel_pitch,
             wave_length,
             band_limit,
@@ -303,7 +309,7 @@ class bandLimitedAngularSpectrumMethod_for_single_fixed_distance(
         # these parameters are fixed to accelerate the calculation in network
         self.distance = distance
         self.circular_frequency_mask_differentiable_grid = (
-            utilities.prepare_circular_frequency_mask_differentiable_grid(
+            utilities.prepare_circular_frequency_mask_grid(
                 self.samplingRowNum, self.samplingColNum
             ).to(self.device)
         )
@@ -429,7 +435,7 @@ class bandLimitedAngularSpectrumMethod_for_single_fixed_distance(
         G_z = torch.fft.fft2(self.padding(amp_z * torch.exp(1j * phs_z)))
         g_0 = self.cropping(torch.fft.ifft2(G_z / self.H))
         return torch.abs(g_0), torch.angle(g_0)
-    
+
     def propagate_AP2C_backward(
         self,
         amp_z,
@@ -442,7 +448,15 @@ class bandLimitedAngularSpectrumMethod_for_single_fixed_distance(
         g_0 = self.cropping(torch.fft.ifft2(G_z / self.H))
         return g_0
 
-    def propagate_POH2AP_forward(
+    def propagate_POH2Freq_forward(
+        self,
+        POH,
+    ):
+        G_0 = torch.fft.fft2(self.padding(torch.exp(1j * POH)))
+        G_z = G_0 * self.H * self.diffraction_limited_mask
+        return G_z
+
+    def propagate_POH2AP_forward_with_spectrum_loss(
         self,
         phs_0,
         filter_radius_coefficient=torch.tensor(0.5),
@@ -461,6 +475,22 @@ class bandLimitedAngularSpectrumMethod_for_single_fixed_distance(
         spectrum_mean_loss = torch.mean(torch.abs(G_0) - torch.abs(G_z_filtered))
         g_z = self.cropping(torch.fft.ifft2(G_z_filtered))
         return torch.abs(g_z), torch.angle(g_z), spectrum_mean_loss
+
+    def propagate_POH2AP_forward(
+        self,
+        phs_0,
+    ):
+        """
+        For GAN
+        """
+        G_0 = torch.fft.fft2(self.padding(torch.exp(1j * phs_0)))
+        G_z_filtered = (
+            G_0
+            * self.H
+            * self.diffraction_limited_mask
+        )
+        g_z = self.cropping(torch.fft.ifft2(G_z_filtered))
+        return torch.abs(g_z), torch.angle(g_z)
 
     def propagate_AP2AP_forward(
         self,
@@ -497,8 +527,18 @@ class bandLimitedAngularSpectrumMethod_for_single_fixed_distance(
 
         return mask
 
+    def generate_circular_frequency_mask(
+        self,
+        filter_radius_coefficient,
+    ):
+        shorter_edge = min(self.samplingRowNum, self.samplingColNum)
+        radius = shorter_edge * filter_radius_coefficient
+
+        mask = torch.ones_like(self.circular_frequency_mask_differentiable_grid)
+        mask[self.circular_frequency_mask_differentiable_grid > radius] = 0.0
+
     # --------------------------------------------------------------------------------------------------------------------
-    # -----------------------------------------------------------For GAN--------------------------------------------------
+    # --------------------------------------------------------------------------------------------------------------------
     # --------------------------------------------------------------------------------------------------------------------
 
     def generate_band_limited_mask(self):
@@ -540,21 +580,27 @@ class bandLimitedAngularSpectrumMethod_for_multiple_distances(
         self,
         sample_row_num=192,
         sample_col_num=192,
-        pad_size=192,
+        distances=None,
+        pad_size=160,
+        filter_radius_coefficient=0.5,
         pixel_pitch=3.74e-6,
         wave_length=torch.tensor([639e-9, 515e-9, 473e-9]),
         band_limit=False,
-        cuda=False,
+        cuda=True,
     ):
         super(bandLimitedAngularSpectrumMethod_for_multiple_distances, self).__init__(
             sample_row_num,
             sample_col_num,
             pad_size,
+            filter_radius_coefficient,
             pixel_pitch,
             wave_length,
             band_limit,
             cuda,
         )
+
+        self.distances = distances.to(self.device)
+        self.H = self.generate_transfer_function(self.distances).to(self.device)
 
     def __call__(
         self,
@@ -568,28 +614,25 @@ class bandLimitedAngularSpectrumMethod_for_multiple_distances(
             self.padding(amplitute_tensor * torch.exp(1j * phase_tensor))
         )
         H = self.generate_transfer_function(distances) * self.diffraction_limited_mask
-        # H = self.generate_transfer_function(distances)
 
         G_z = (G_0.unsqueeze(1) * H).view(
-            -1, distances_num, 3, self.samplingRowNum, self.samplingColNum
+            -1, distances_num * 3, self.samplingRowNum, self.samplingColNum
         )
-        intensity = torch.abs(self.cropping(torch.fft.ifft2(G_z)))
-        return intensity
+        amp = torch.abs(self.cropping(torch.fft.ifft2(G_z)))
+        return amp
 
-    def cropping(self, tensor):
-        """
-        Invert the padding operation.
+    def propagate_fixed_multiple_distances_freq2amp(self, G_0):
+        G_z = G_0.unsqueeze(1) * self.H * self.diffraction_limited_mask
+        return torch.abs(
+            self.cropping(
+                torch.fft.ifft2(
+                    G_z.view(-1, 3, self.samplingRowNum, self.samplingColNum)
+                )
+            )
+        )
 
-        Args:
-            tensor (torch.Tensor): The tensor to be inverted.
-            pad_size (int): The size of the padding.
-
-        Returns:
-            torch.Tensor: The inverted tensor.
-        """
-        if self.pad_size == 0:
-            return tensor
-        else:
-            return tensor[
-                :, :, :, self.pad_size : -self.pad_size, self.pad_size : -self.pad_size
-            ]
+    def filter_AP2filteredFreq(self, amp, phs):
+        phs = 2 * torch.pi * phs
+        G_0 = torch.fft.fft2(self.padding(amp * torch.exp(1j * phs)))
+        G_z = G_0 * self.diffraction_limited_mask
+        return G_z

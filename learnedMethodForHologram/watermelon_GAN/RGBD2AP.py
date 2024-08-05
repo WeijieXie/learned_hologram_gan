@@ -96,7 +96,7 @@ class RGBD2AP(nn.Module):
             for img_depth, amp, phs in train_loader:
 
                 amp_hat, phs_hat = model(img_depth)
-                l = self.loss(amp_hat, phs_hat, amp, phs, alpha)
+                l = self.loss(amp_hat, phs_hat, amp, 2 * torch.pi * phs, alpha)
 
                 self.optimizer.zero_grad()
                 l.backward()
@@ -112,7 +112,7 @@ class RGBD2AP(nn.Module):
 
                 with torch.no_grad():
                     amp_hat, phs_hat = model(img_depth)
-                    l = self.loss(amp_hat, phs_hat, amp, phs, alpha)
+                    l = self.loss(amp_hat, phs_hat, amp, 2 * torch.pi * phs, alpha)
 
                 test_loss += l.item()
                 n_test += img_depth.size(0)
