@@ -118,3 +118,34 @@ def focal_freq_loss(fake_freq, real_freq):
     weighted_diff = frequency_diff * weight_matrix
     freq_loss = torch.mean(weighted_diff**2)
     return freq_loss
+
+
+def focal_phase_gradient_loss(fake_phase, real_phase):
+    sin_cos_fake_phase = torch.cat(
+        (torch.sin(fake_phase), torch.cos(fake_phase)), dim=1
+    )
+    sin_cos_real_phase = torch.cat(
+        (torch.sin(real_phase), torch.cos(real_phase)), dim=1
+    )
+
+    diff_1_fake = sin_cos_fake_phase[:, :, :, 1:] - sin_cos_fake_phase[:, :, :, :-1]
+    diff_2_fake = sin_cos_fake_phase[:, :, 1:, :] - sin_cos_fake_phase[:, :, :-1, :]
+
+    diff_1_real = sin_cos_real_phase[:, :, :, 1:] - sin_cos_real_phase[:, :, :, :-1]
+    diff_2_real = sin_cos_real_phase[:, :, 1:, :] - sin_cos_real_phase[:, :, :-1, :]
+
+    diff_1 = torch.abs(diff_1_fake - diff_1_real)
+    diff_2 = torch.abs(diff_2_fake - diff_2_real)
+
+    with torch.no_grad():
+        weight_matrix_1 = torch.pow(diff_1, 2)
+        weight_matrix_1 = weight_matrix_1 / torch.max(weight_matrix_1)
+
+        weight_matrix_2 = torch.pow(diff_2, 2)
+        weight_matrix_2 = weight_matrix_2 / torch.max(weight_matrix_2)
+
+    weighted_diff_1 = diff_1 * weight_matrix_1
+    weighted_diff_2 = diff_2 * weight_matrix_2
+
+    phase_gradient_loss = torch.mean(weighted_diff_1) + torch.mean(weighted_diff_2)
+    return phase_gradient_loss
