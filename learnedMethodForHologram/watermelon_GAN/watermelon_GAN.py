@@ -89,6 +89,8 @@ class watermelon_gan:
         save_path_G=None,
         save_path_D=None,
         info_print_interval=100,
+        info_plot_interval=600,
+        save_path_img=None,
         checkpoint_iterval=5,
         discriminator_train_ratio=2,
         discriminator_lambda=10,
@@ -149,7 +151,9 @@ class watermelon_gan:
             self.generator.train()
             self.discriminator.train()
 
-            for i, (RGBD, target_amp, target_phs) in enumerate(data_loader_train):
+            for iter_num, (RGBD, target_amp, target_phs) in enumerate(
+                data_loader_train
+            ):
 
                 n_train += RGBD.size(0)
                 G_batch_size = RGBD.size(0)
@@ -170,34 +174,38 @@ class watermelon_gan:
                 # propagate the hat and target frequency to different distances
                 hat_target_freq = torch.cat((hat_freq, target_freq), dim=0)
                 hat_target_amp = (
-                    self.propagator.propagate_fixed_multiple_distances_freq2amp(
+                    self.propagator.propagate_fixed_multiple_distances_freq2amp_DS(
                         hat_target_freq
                     )
                 )
 
                 # the hat and target amplitude at multible distances
                 D_batch_size = G_batch_size * self.distance_num
-                hat_amps = hat_target_amp[:D_batch_size]
-                target_amps = hat_target_amp[D_batch_size:]
+                hat_amps_all = hat_target_amp[:D_batch_size]
+                target_amps_all = hat_target_amp[D_batch_size:]
 
-                for _ in range(discriminator_train_ratio):
-                    real_validity = self.discriminator(target_amps)
-                    fake_validity = self.discriminator(hat_amps.detach())
-                    gradient_penalty = self.compute_gradient_penalty(
-                        target_amps, hat_amps
-                    )
-                    discriminator_loss = (
-                        -torch.mean(real_validity) + torch.mean(fake_validity)
-                    ) + discriminator_lambda * gradient_penalty
+                for i in range(0, D_batch_size, G_batch_size):
+                    hat_amps = hat_amps_all[i : i + G_batch_size]
+                    target_amps = target_amps_all[i : i + G_batch_size]
+                    print(i)
+                    for _ in range(discriminator_train_ratio):
+                        real_validity = self.discriminator(target_amps)
+                        fake_validity = self.discriminator(hat_amps.detach())
+                        gradient_penalty = self.compute_gradient_penalty(
+                            target_amps, hat_amps
+                        )
+                        discriminator_loss = (
+                            -torch.mean(real_validity) + torch.mean(fake_validity)
+                        ) + discriminator_lambda * gradient_penalty
 
-                    optimizer_D.zero_grad()
-                    discriminator_loss.backward(retain_graph=True)
-                    optimizer_D.step()
+                        optimizer_D.zero_grad()
+                        discriminator_loss.backward(retain_graph=True)
+                        optimizer_D.step()
 
-                    # record the loss
-                    self.train_losses_tensor[-1] += (
-                        discriminator_loss.item() / discriminator_train_ratio
-                    )
+                        # record the loss
+                        self.train_losses_tensor[-1] += (
+                            discriminator_loss.item() / discriminator_train_ratio
+                        )
 
                 generator_loss = self.G_loss(
                     hat_freq,
@@ -214,11 +222,13 @@ class watermelon_gan:
                 optimizer_G.step()
 
                 with torch.no_grad():
-                    if i % info_print_interval == 0:
+                    if iter_num % info_print_interval == 0:
                         print(
-                            f"epoch {epoch}, batch {i + 1}:\n"
-                            # f"train: freq_loss {self.train_losses_tensor[0]}, perceptual_loss {self.train_losses_tensor[1]}, pixel_loss {self.train_losses_tensor[2]}, TV_loss {self.train_losses_tensor[3]}, G_loss {self.train_losses_tensor[4]}, D_loss {self.train_losses_tensor[5]}"
+                            f"epoch {epoch}, batch {iter_num + 1}:\n"
+                            f"train: freq_loss {self.train_losses_tensor[0]}, perceptual_loss {self.train_losses_tensor[1]}, pixel_loss {self.train_losses_tensor[2]}, TV_loss {self.train_losses_tensor[3]}, G_loss {self.train_losses_tensor[4]}, D_loss {self.train_losses_tensor[5]}"
                         )
+
+                    if iter_num % info_plot_interval == 0:
                         if visualization_RGBD_AP is not None:
                             RGBD, target_amp, target_phs = visualization_RGBD_AP
                             RGBD = RGBD.unsqueeze(0)
@@ -240,10 +250,14 @@ class watermelon_gan:
                                     ),
                                 ),
                                 titles=[
-                                    f"amp_hat in epoch {epoch}, batch {i}",
-                                    f"phs_hat in epoch {epoch}, batch {i}",
+                                    f"amp_hat in epoch {epoch}, batch {iter_num + 1}",
+                                    f"phs_hat in epoch {epoch}, batch {iter_num + 1}",
                                 ],
                                 rgb_img=True,
+                                save_dir=save_path_img,
+                            )
+                            print(
+                                f"visualization saved at epoch {epoch}, batch {iter_num + 1}"
                             )
 
             self.generator.eval()
@@ -274,7 +288,7 @@ class watermelon_gan:
                     # propagate the hat and target frequency to different distances
                     hat_target_freq = torch.cat((hat_freq, target_freq), dim=0)
                     hat_target_amp = (
-                        self.propagator.propagate_fixed_multiple_distances_freq2amp(
+                        self.propagator.propagate_fixed_multiple_distances_freq2amp_SD(
                             hat_target_freq
                         )
                     )
@@ -333,6 +347,36 @@ class watermelon_gan:
                     check_point_path = save_path_D.replace(".pth", f"_epoch{epoch}.pth")
                     torch.save(self.discriminator.state_dict(), check_point_path)
                     print(f"Discriminator saved to {check_point_path}")
+
+                with torch.no_grad():
+                    if visualization_RGBD_AP is not None:
+                        RGBD, target_amp, target_phs = visualization_RGBD_AP
+                        RGBD = RGBD.unsqueeze(0)
+                        POH_phs = self.generator(RGBD)
+                        amp_hat, phs_hat = (
+                            self.generator.part2.propagator.propagate_POH2AP_forward(
+                                POH_phs
+                            )
+                        )
+
+                        multi_sample_plotter(
+                            tensor_normalizor_2D(
+                                torch.cat(
+                                    (
+                                        amp_hat,
+                                        phs_hat,
+                                    ),
+                                    dim=0,
+                                ),
+                            ),
+                            titles=[
+                                f"amp_hat in epoch {epoch}",
+                                f"phs_hat in epoch {epoch}",
+                            ],
+                            rgb_img=True,
+                            save_dir=save_path_img,
+                        )
+                        print(f"visualization saved at epoch {epoch}")
 
         if save_path_G is not None:
             torch.save(self.generator.state_dict(), save_path_G)
