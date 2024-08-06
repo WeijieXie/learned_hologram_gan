@@ -6,11 +6,7 @@ import torch.autograd as autograd
 
 from .generator import Generator
 from .discriminator import WGANGPDiscriminator192
-from .loss_func import (
-    PerceptualLoss,
-    focal_freq_loss,
-    total_variation_loss,
-)
+from .loss_func import PerceptualLoss, total_variation_loss, focal_phase_gradient_loss
 
 from ..bandlimited_angular_spectrum_approach import (
     bandLimitedAngularSpectrumMethod_for_multiple_distances,
@@ -78,7 +74,7 @@ class watermelon_gan:
         self,
         data_loader_train,
         data_loader_val,
-        freq_loss_weight=1e-3,
+        phs_gradient_loss_weight=1,
         perceptual_loss_weight=1.0,
         pixel_loss_weight=1.0,
         TV_loss_weight=1e-3,
@@ -109,7 +105,7 @@ class watermelon_gan:
                 "!!!!!!The save path of the discriminator is not specified, the model will not be saved!!!!!!"
             )
 
-        self.freq_loss_weight = freq_loss_weight
+        self.phs_gradient_loss_weight = phs_gradient_loss_weight
         self.perceptual_loss_weight = perceptual_loss_weight
         self.pixel_loss_weight = pixel_loss_weight
         self.TV_loss_weight = TV_loss_weight
@@ -176,62 +172,53 @@ class watermelon_gan:
 
                 # propagate the hat and target frequency to different distances
                 hat_target_freq = torch.cat((hat_freq, target_freq), dim=0)
-                hat_target_amp = (
-                    self.propagator.propagate_fixed_multiple_distances_freq2amp_DS(
+                hat_target_amp, hat_target_phs = (
+                    self.propagator.propagate_fixed_multiple_distances_freq2amp_SD(
                         hat_target_freq
                     )
                 )
 
-                # begin the training, set the gradient of the generator to zero
-                optimizer_G.zero_grad()
-                freq_loss = (
-                    focal_freq_loss(hat_freq, target_freq) * self.freq_loss_weight
-                )
-                self.train_losses_tensor[0] += freq_loss
-                freq_loss.backward(retain_graph=True)
-
                 # the hat and target amplitude at multible distances
                 D_batch_size = G_batch_size * self.distance_num
-                hat_amps_all = hat_target_amp[:D_batch_size]
-                target_amps_all = hat_target_amp[D_batch_size:]
 
-                hat_amps_splits = torch.split(hat_amps_all, G_batch_size)
-                target_amps_splits = torch.split(target_amps_all, G_batch_size)
+                hat_amps = hat_target_amp[:D_batch_size]
+                target_amps = hat_target_amp[D_batch_size:]
+                hat_phases = hat_target_phs[:D_batch_size]
+                target_phases = hat_target_phs[D_batch_size:]
 
-                # set the gradient of the discriminator to zero
-                for i, (hat_amps, target_amps) in enumerate(
-                    zip(hat_amps_splits, target_amps_splits)
-                ):
-                    for _ in range(discriminator_train_ratio):
-                        real_validity = self.discriminator(target_amps)
-                        fake_validity = self.discriminator(hat_amps.detach())
-                        gradient_penalty = self.compute_gradient_penalty(
-                            target_amps, hat_amps.detach()
-                        )
-                        discriminator_loss = (
-                            -torch.mean(real_validity) + torch.mean(fake_validity)
-                        ) + discriminator_lambda * gradient_penalty
-
-                        optimizer_D.zero_grad()
-                        discriminator_loss.backward(retain_graph=True)
-                        optimizer_D.step()
-
-                        # record the loss
-                        self.train_losses_tensor[-1] += (
-                            discriminator_loss.item() / discriminator_train_ratio
-                        )
-
-                    # calculate the loss from the discriminator
-                    loss_from_discriminator = -torch.mean(self.discriminator(hat_amps))
-
-                    generator_loss = self.G_loss(
-                        hat_amps,
-                        target_amps,
-                        loss_from_discriminator,
-                        self.train_losses_tensor,
+                for _ in range(discriminator_train_ratio):
+                    real_validity = self.discriminator(target_amps)
+                    fake_validity = self.discriminator(hat_amps.detach())
+                    gradient_penalty = self.compute_gradient_penalty(
+                        target_amps, hat_amps.detach()
                     )
-                    generator_loss.backward(retain_graph=True)
-                # update the generator
+                    discriminator_loss = (
+                        -torch.mean(real_validity) + torch.mean(fake_validity)
+                    ) + discriminator_lambda * gradient_penalty
+
+                    optimizer_D.zero_grad()
+                    discriminator_loss.backward(retain_graph=True)
+                    optimizer_D.step()
+
+                    # record the loss
+                    self.train_losses_tensor[-1] += (
+                        discriminator_loss.item() / discriminator_train_ratio
+                    )
+
+                # calculate the loss from the discriminator
+                loss_from_discriminator = -torch.mean(self.discriminator(hat_amps))
+
+                generator_loss = self.G_loss(
+                    hat_amps,
+                    target_amps,
+                    hat_phases,
+                    target_phases,
+                    loss_from_discriminator,
+                    self.train_losses_tensor,
+                )
+
+                optimizer_G.zero_grad()
+                generator_loss.backward()
                 optimizer_G.step()
 
                 with torch.no_grad():
@@ -242,7 +229,7 @@ class watermelon_gan:
 
                         print(
                             f"epoch {epoch}, batch {iter_num + 1}:\n"
-                            f"train: freq_loss {train_losses_tensor_iter[0]}, perceptual_loss {train_losses_tensor_iter[1]}, pixel_loss {train_losses_tensor_iter[2]}, TV_loss {train_losses_tensor_iter[3]}, gan_loss {train_losses_tensor_iter[4]}, G_loss {train_losses_tensor_iter[5]}, D_loss {train_losses_tensor_iter[6]}"
+                            f"train: focal_phase_gradient_loss {train_losses_tensor_iter[0]}, perceptual_loss {train_losses_tensor_iter[1]}, pixel_loss {train_losses_tensor_iter[2]}, TV_loss {train_losses_tensor_iter[3]}, gan_loss {train_losses_tensor_iter[4]}, G_loss {train_losses_tensor_iter[5]}, D_loss {train_losses_tensor_iter[6]}"
                         )
                         train_losses_tensor_last = self.train_losses_tensor.clone()
                         n_train_last = n_train
@@ -304,14 +291,9 @@ class watermelon_gan:
                         target_amp, target_phs
                     )
 
-                    freq_loss = (
-                        focal_freq_loss(hat_freq, target_freq) * self.freq_loss_weight
-                    )
-                    self.validate_losses_tensor[0] += freq_loss
-
                     # propagate the hat and target frequency to different distances
                     hat_target_freq = torch.cat((hat_freq, target_freq), dim=0)
-                    hat_target_amp = (
+                    hat_target_amp, hat_target_phs = (
                         self.propagator.propagate_fixed_multiple_distances_freq2amp_SD(
                             hat_target_freq
                         )
@@ -322,6 +304,8 @@ class watermelon_gan:
 
                     hat_amps = hat_target_amp[:D_batch_size]
                     target_amps = hat_target_amp[D_batch_size:]
+                    hat_phases = hat_target_phs[:D_batch_size]
+                    target_phases = hat_target_phs[D_batch_size:]
 
                     real_validity = self.discriminator(target_amps)
                     fake_validity = self.discriminator(hat_amps)
@@ -343,6 +327,8 @@ class watermelon_gan:
                     generator_loss = self.G_loss(
                         hat_amps,
                         target_amps,
+                        hat_phases,
+                        target_phases,
                         loss_from_discriminator,
                         self.validate_losses_tensor,
                     )
@@ -352,8 +338,8 @@ class watermelon_gan:
 
             print(
                 f"epoch {epoch + 1}:\n"
-                f"train: freq_loss {self.train_losses_tensor[0]}, perceptual_loss {self.train_losses_tensor[1]}, pixel_loss {self.train_losses_tensor[2]}, TV_loss {self.train_losses_tensor[3]}, gan_loss {self.train_losses_tensor[4]}, G_loss {self.train_losses_tensor[5]}, D_loss {self.train_losses_tensor[6]}\n"
-                f"validate: freq_loss {self.validate_losses_tensor[0]}, perceptual_loss {self.validate_losses_tensor[1]}, pixel_loss {self.validate_losses_tensor[2]}, TV_loss {self.validate_losses_tensor[3]}, gan_loss {self.validate_losses_tensor[4]}, G_loss {self.validate_losses_tensor[5]}, D_loss {self.validate_losses_tensor[6]}"
+                f"train: focal_phase_gradient_loss {self.train_losses_tensor[0]}, perceptual_loss {self.train_losses_tensor[1]}, pixel_loss {self.train_losses_tensor[2]}, TV_loss {self.train_losses_tensor[3]}, gan_loss {self.train_losses_tensor[4]}, G_loss {self.train_losses_tensor[5]}, D_loss {self.train_losses_tensor[6]}\n"
+                f"validate: focal_phase_gradient_loss {self.validate_losses_tensor[0]}, perceptual_loss {self.validate_losses_tensor[1]}, pixel_loss {self.validate_losses_tensor[2]}, TV_loss {self.validate_losses_tensor[3]}, gan_loss {self.validate_losses_tensor[4]}, G_loss {self.validate_losses_tensor[5]}, D_loss {self.validate_losses_tensor[6]}"
             )
 
             # step_scheduler_G.step(self.validate_losses_tensor[4])
@@ -409,18 +395,30 @@ class watermelon_gan:
             torch.save(self.discriminator.state_dict(), save_path_D)
             print(f"Discriminator saved to {save_path_D}")
 
-    def G_loss(self, hat_amps, target_amps, loss_from_discriminator, recorder=None):
+    def G_loss(
+        self,
+        hat_amps,
+        target_amps,
+        hat_phs,
+        target_phs,
+        loss_from_discriminator,
+        recorder=None,
+    ):
+        phs_loss = (
+            focal_phase_gradient_loss(hat_phs, target_phs)
+            * self.phs_gradient_loss_weight
+        )
         perceptual_loss = (
             self.perceptual_loss(hat_amps, target_amps) * self.perceptual_loss_weight
         )
         pixel_loss = F.mse_loss(hat_amps, target_amps) * self.pixel_loss_weight
         TV_loss = total_variation_loss(hat_amps, target_amps) * self.TV_loss_weight
         gan_loss = loss_from_discriminator * self.discriminator_loss_weight
-        loss = perceptual_loss + pixel_loss + TV_loss + gan_loss
+        loss = phs_loss + perceptual_loss + pixel_loss + TV_loss + gan_loss
 
         with torch.no_grad():
             recorder += torch.tensor(
-                [0.0, perceptual_loss, pixel_loss, TV_loss, gan_loss, loss, 0.0],
+                [phs_loss, perceptual_loss, pixel_loss, TV_loss, gan_loss, loss, 0.0],
                 device=self.device,
             )
 
