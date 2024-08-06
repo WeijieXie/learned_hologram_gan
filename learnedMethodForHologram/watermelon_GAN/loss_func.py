@@ -83,7 +83,7 @@ def total_variation_loss(y_hat, y):
     """
     Compute the total variation loss.
     """
-    return total_variation(y_hat) - total_variation(y)
+    return torch.abs(total_variation(y_hat) - total_variation(y))
 
 
 def amp_loss(amp_hat, amp, alpha=1.0):
