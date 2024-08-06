@@ -138,10 +138,10 @@ def focal_phase_gradient_loss(fake_phase, real_phase):
     diff_2 = torch.abs(diff_2_fake - diff_2_real)
 
     with torch.no_grad():
-        weight_matrix_1 = torch.pow(diff_1, 2)
+        weight_matrix_1 = torch.pow(diff_1, 1)
         weight_matrix_1 = weight_matrix_1 / torch.max(weight_matrix_1)
 
-        weight_matrix_2 = torch.pow(diff_2, 2)
+        weight_matrix_2 = torch.pow(diff_2, 1)
         weight_matrix_2 = weight_matrix_2 / torch.max(weight_matrix_2)
 
     weighted_diff_1 = diff_1 * weight_matrix_1
