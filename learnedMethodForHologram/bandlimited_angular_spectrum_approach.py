@@ -484,11 +484,7 @@ class bandLimitedAngularSpectrumMethod_for_single_fixed_distance(
         For GAN
         """
         G_0 = torch.fft.fft2(self.padding(torch.exp(1j * phs_0)))
-        G_z_filtered = (
-            G_0
-            * self.H
-            * self.diffraction_limited_mask
-        )
+        G_z_filtered = G_0 * self.H * self.diffraction_limited_mask
         g_z = self.cropping(torch.fft.ifft2(G_z_filtered))
         return torch.abs(g_z), torch.angle(g_z)
 
@@ -621,8 +617,18 @@ class bandLimitedAngularSpectrumMethod_for_multiple_distances(
         amp = torch.abs(self.cropping(torch.fft.ifft2(G_z)))
         return amp
 
-    def propagate_fixed_multiple_distances_freq2amp(self, G_0):
+    def propagate_fixed_multiple_distances_freq2amp_SD(self, G_0):
         G_z = G_0.unsqueeze(1) * self.H * self.diffraction_limited_mask
+        return torch.abs(
+            self.cropping(
+                torch.fft.ifft2(
+                    G_z.view(-1, 3, self.samplingRowNum, self.samplingColNum)
+                )
+            )
+        )
+
+    def propagate_fixed_multiple_distances_freq2amp_DS(self, G_0):
+        G_z = G_0 * (self.H.unsqueeze(1)) * self.diffraction_limited_mask
         return torch.abs(
             self.cropping(
                 torch.fft.ifft2(
