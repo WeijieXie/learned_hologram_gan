@@ -348,7 +348,7 @@ class watermelon_gan:
             # step_scheduler_D.step(self.validate_losses_tensor[5])
 
             # checkpoint
-            if epoch % checkpoint_iterval == 0 and epoch != 0:
+            if epoch % checkpoint_iterval == 0:
                 if save_path_G is not None:
                     check_point_path = save_path_G.replace(".pth", f"_epoch{epoch}.pth")
                     torch.save(self.generator.state_dict(), check_point_path)
