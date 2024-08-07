@@ -63,7 +63,7 @@ class AP2POH(nn.Module):
             # distance=torch.tensor([1e-3]),
         )
 
-        self.part1 = ChannelWiseSymmetricConv(kernel_size=5, padding=2).to(self.device)
+        self.part1 = ChannelWiseSymmetricConv(kernel_size=3, padding=1).to(self.device)
         # self.filter_radius_coefficient = nn.Parameter(
         #     torch.tensor(
         #         [filter_radius_coefficient], requires_grad=True, device=self.device
