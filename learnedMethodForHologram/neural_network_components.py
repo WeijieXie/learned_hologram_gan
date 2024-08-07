@@ -41,17 +41,82 @@ class ResidualBlock(nn.Module):
         return F.relu(Y)
 
 
-class ResidualBlock_sigmoid(ResidualBlock):
-    def __init__(self, num_channels, use_1x1conv=False, strides=1):
-        super(ResidualBlock_sigmoid, self).__init__(num_channels, use_1x1conv, strides)
+class ResidualBlock_AP2POH(nn.Module):
+    def __init__(self, num_channels, use_1x1conv=False):
+        super(ResidualBlock, self).__init__()
+        self.convolution_layer_1 = nn.LazyConv2d(
+            num_channels, kernel_size=2, padding=(1, 1)
+        )
+        self.convolution_layer_2 = nn.LazyConv2d(num_channels, kernel_size=2)
 
     def forward(self, X):
-        Y = F.relu(self.batch_norm_layer_1(self.convolution_layer_1(X)))
-        Y = self.batch_norm_layer_2(self.convolution_layer_2(Y))
-        if self.convolution_layer_3:
-            X = self.convolution_layer_3(X)
-        Y += X
-        return F.sigmoid(Y)
+        Y = F.relu(self.convolution_layer_1(X))
+        Y = self.convolution_layer_2(Y)
+        X = X + Y
+        return F.relu(X)
+
+
+class SymmetricConv2d(nn.Module):
+    def __init__(self, kernel_size=3, padding=1):
+        super(SymmetricConv2d, self).__init__()
+        self.kernel_size = kernel_size
+        self.padding = padding
+        self.center = kernel_size // 2
+
+        # Create a single parameter for each unique distance
+        unique_distances = self.get_unique_distances()
+        self.params = nn.Parameter(torch.randn(len(unique_distances)))
+        self.bias = nn.Parameter(torch.zeros(1))
+        self.distance_map = self.create_distance_map(unique_distances)
+
+    def get_unique_distances(self):
+        center = self.kernel_size // 2
+        distances = set()
+        for i in range(self.kernel_size):
+            for j in range(self.kernel_size):
+                dist = (i - center) ** 2 + (j - center) ** 2
+                distances.add(dist)
+        return sorted(distances)
+
+    def create_distance_map(self, unique_distances):
+        center = self.kernel_size // 2
+        distance_map = torch.zeros(
+            (self.kernel_size, self.kernel_size), dtype=torch.long
+        )
+        for i in range(self.kernel_size):
+            for j in range(self.kernel_size):
+                dist = (i - center) ** 2 + (j - center) ** 2
+                distance_map[i, j] = unique_distances.index(dist)
+        return distance_map
+
+    def forward(self, x):
+        # Create weight matrix with shared parameters
+        weight = self.params[self.distance_map]
+        weight = weight.unsqueeze(0).unsqueeze(0)
+
+        # Convolve input with symmetric kernel
+        out = F.conv2d(x, weight, self.bias, padding=self.padding)
+        return out
+
+
+class ChannelWiseSymmetricConv(nn.Module):
+    def __init__(self, kernel_size=3, padding=1):
+        super(ChannelWiseSymmetricConv, self).__init__()
+        self.conv_r = SymmetricConv2d(kernel_size, padding)
+        self.conv_g = SymmetricConv2d(kernel_size, padding)
+        self.conv_b = SymmetricConv2d(kernel_size, padding)
+
+    def forward(self, x):
+        x_r = x[:, 0:1, :, :]
+        x_g = x[:, 1:2, :, :]
+        x_b = x[:, 2:3, :, :]
+
+        out_r = self.conv_r(x_r)
+        out_g = self.conv_g(x_g)
+        out_b = self.conv_b(x_b)
+
+        out = torch.cat((out_r, out_g, out_b), dim=1)
+        return out
 
 
 class FourierBlock(nn.Module):
