@@ -34,10 +34,11 @@ class watermelon_gan:
             sample_row_num=192,
             sample_col_num=192,
             pad_size=160,
-            pretrained_model_path=pretrained_model_path_G,
+            filter_radius_coefficient=filter_radius_coefficient,
             pixel_pitch=3.74e-6,
             wave_length=torch.tensor([638e-9, 520e-9, 450e-9]),
             distance=torch.tensor([1e-3]),
+            pretrained_model_path=pretrained_model_path_G,
         )
 
         self.discriminator = WGANGPDiscriminator192(
