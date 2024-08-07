@@ -8,11 +8,7 @@ from ..utilities import try_gpu, generate_checkerboard_mask, amplitude_normalizo
 from ..bandlimited_angular_spectrum_approach import (
     bandLimitedAngularSpectrumMethod_for_single_fixed_distance as fixed_distance_propogator,
 )
-from ..neural_network_components import (
-    ResidualBlock_sigmoid,
-    ResNet,
-    miniResNet,
-)
+from ..neural_network_components import miniResNet, ChannelWiseSymmetricConv
 
 from .loss_func import amp_loss
 
@@ -67,7 +63,7 @@ class AP2POH(nn.Module):
             # distance=torch.tensor([1e-3]),
         )
 
-        self.part1 = miniResNet(output_channels=6).to(self.device)
+        self.part1 = ChannelWiseSymmetricConv(kernel_size=5, padding=2).to(self.device)
         # self.filter_radius_coefficient = nn.Parameter(
         #     torch.tensor(
         #         [filter_radius_coefficient], requires_grad=True, device=self.device
@@ -117,13 +113,25 @@ class AP2POH(nn.Module):
 
     def forward(self, amp_z, phs_z):
 
+        # complex_field = self.propagator.propagate_AP2C_backward(amp_z, phs_z)
+        # part1_input = torch.cat(
+        #     (torch.real(complex_field), torch.imag(complex_field)), dim=-3
+        # )
+        # part1_output = self.part1(part1_input) - 0.5
+        # modified_complex_field = (
+        #     torch.complex(part1_output[:, :3], part1_output[:, 3:]) + complex_field
+        # )
+        # # Double phase method
+        # POH = self.double_phase_method(
+        #     amplitude_normalizor(torch.abs(modified_complex_field)),
+        #     torch.angle(modified_complex_field),
+        # )
+        # return POH
+
+        # amplitude modulation
         complex_field = self.propagator.propagate_AP2C_backward(amp_z, phs_z)
-        part1_input = torch.cat(
-            (torch.real(complex_field), torch.imag(complex_field)), dim=-3
-        )
-        part1_output = self.part1(part1_input) - 0.5
-        modified_complex_field = (
-            torch.complex(part1_output[:, :3], part1_output[:, 3:]) + complex_field
+        modified_complex_field = torch.complex(
+            self.part1(torch.real(complex_field)), self.part1(torch.imag(complex_field))
         )
         # Double phase method
         POH = self.double_phase_method(
