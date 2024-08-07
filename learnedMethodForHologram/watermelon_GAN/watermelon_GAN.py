@@ -19,6 +19,7 @@ class watermelon_gan:
     def __init__(
         self,
         filter_radius_coefficient=0.5,
+        pad_size=416,
         distance_stack=torch.linspace(-1.5e-4, 0.0, 8)[:-1],
         pretrained_model_path_G=None,
         pretrained_model_path_D=None,
@@ -33,7 +34,7 @@ class watermelon_gan:
         self.generator = Generator(
             sample_row_num=192,
             sample_col_num=192,
-            pad_size=160,
+            pad_size=pad_size,
             filter_radius_coefficient=filter_radius_coefficient,
             pixel_pitch=3.74e-6,
             wave_length=torch.tensor([638e-9, 520e-9, 450e-9]),
@@ -55,7 +56,7 @@ class watermelon_gan:
             sample_row_num=192,
             sample_col_num=192,
             distances=distance_stack,
-            pad_size=160,
+            pad_size=pad_size,
             filter_radius_coefficient=filter_radius_coefficient,
             pixel_pitch=3.74e-6,
             wave_length=torch.tensor([638e-9, 520e-9, 450e-9]),
