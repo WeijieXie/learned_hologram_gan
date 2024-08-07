@@ -612,10 +612,10 @@ class bandLimitedAngularSpectrumMethod_for_multiple_distances(
         H = self.generate_transfer_function(distances) * self.diffraction_limited_mask
 
         G_z = (G_0.unsqueeze(1) * H).view(
-            -1, distances_num * 3, self.samplingRowNum, self.samplingColNum
+            -1, 3, self.samplingRowNum, self.samplingColNum
         )
-        amp = torch.abs(self.cropping(torch.fft.ifft2(G_z)))
-        return amp
+        g_z = self.cropping(torch.fft.ifft2(G_z))
+        return torch.abs(g_z), torch.angle(g_z)
 
     def propagate_fixed_multiple_distances_freq2amp_SD(self, G_0):
         G_z = G_0.unsqueeze(1) * self.H * self.diffraction_limited_mask
