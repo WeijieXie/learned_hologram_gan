@@ -41,7 +41,7 @@ class WGANGPDiscriminator192(nn.Module):
     def __init__(
         self,
         pretrained_model_path=None,
-        feature_d=64,
+        feature_d=32,
         cuda=True,
     ):
         super(WGANGPDiscriminator192, self).__init__()
