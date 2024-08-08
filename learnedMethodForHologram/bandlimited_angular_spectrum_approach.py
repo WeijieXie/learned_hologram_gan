@@ -625,21 +625,24 @@ class bandLimitedAngularSpectrumMethod_for_multiple_distances(
         return torch.abs(g_z), torch.angle(g_z)
 
     def propagate_fixed_multiple_distances_multiple_samples_freq2amp_SD(self, G_0):
-        print("G_0.shape: ", G_0.shape)
-        print(
-            "G_0.view(2, -1, 3, self.samplingRowNum, self.samplingColNum).shape: ",
-            G_0.view(2, -1, 3, self.samplingRowNum, self.samplingColNum).shape,
-        )
-        print("self.H.shape: ", self.H.shape)
+        # print("G_0.shape: ", G_0.shape)
+        # print(
+        #     "G_0.view(2, -1, 3, self.samplingRowNum, self.samplingColNum).shape: ",
+        #     G_0.view(2, -1, 3, self.samplingRowNum, self.samplingColNum).shape,
+        # )
+        # print("self.H.shape: ", self.H.shape)
+        indices = torch.randperm(self.H.size(0))
+        H = self.H[indices]
+        # print("H.shape: ", H.shape)
         G_z = (
             G_0.view(2, -1, 3, self.samplingRowNum, self.samplingColNum)
-            * self.H
+            * H
             * self.diffraction_limited_mask
         )
         g_z = self.cropping(
             torch.fft.ifft2(G_z.view(-1, 3, self.samplingRowNum, self.samplingColNum))
         )
-        print("g_z.shape: ", g_z.shape)
+        # print("g_z.shape: ", g_z.shape)
         return torch.abs(g_z), torch.angle(g_z)
 
     def propagate_fixed_multiple_distances_freq2amp_DS(self, G_0):
