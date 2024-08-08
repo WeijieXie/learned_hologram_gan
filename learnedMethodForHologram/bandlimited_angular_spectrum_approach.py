@@ -631,7 +631,7 @@ class bandLimitedAngularSpectrumMethod_for_multiple_distances(
         #     G_0.view(2, -1, 3, self.samplingRowNum, self.samplingColNum).shape,
         # )
         # print("self.H.shape: ", self.H.shape)
-        indices = torch.randperm(self.H.size(0))
+        indices = torch.randperm(self.H.size(0))[0 : G_0.size(0) // 2]
         H = self.H[indices]
         # print("H.shape: ", H.shape)
         G_z = (
