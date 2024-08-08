@@ -32,8 +32,8 @@ class watermelon_gan:
         self.distance_num = distance_stack.size(0)
 
         self.generator = Generator(
-            sample_row_num=192,
-            sample_col_num=192,
+            sample_row_num=input_shape[-2],
+            sample_col_num=input_shape[-1],
             pad_size=pad_size,
             filter_radius_coefficient=filter_radius_coefficient,
             pixel_pitch=3.74e-6,
@@ -53,8 +53,8 @@ class watermelon_gan:
         )
 
         self.propagator = bandLimitedAngularSpectrumMethod_for_multiple_distances(
-            sample_row_num=192,
-            sample_col_num=192,
+            sample_row_num=input_shape[-2],
+            sample_col_num=input_shape[-1],
             distances=distance_stack,
             pad_size=pad_size,
             filter_radius_coefficient=filter_radius_coefficient,
