@@ -174,14 +174,20 @@ class watermelon_gan:
 
                 # propagate the hat and target frequency to different distances
                 hat_target_freq = torch.cat((hat_freq, target_freq), dim=0)
+                # hat_target_amp, hat_target_phs = (
+                #     self.propagator.propagate_fixed_multiple_distances_freq2amp_SD(
+                #         hat_target_freq
+                #     )
+                # )
                 hat_target_amp, hat_target_phs = (
-                    self.propagator.propagate_fixed_multiple_distances_freq2amp_SD(
+                    self.propagator.propagate_fixed_multiple_distances_multiple_samples_freq2amp_SD(
                         hat_target_freq
                     )
                 )
 
                 # the hat and target amplitude at multible distances
-                D_batch_size = G_batch_size * self.distance_num
+                # D_batch_size = G_batch_size * self.distance_num
+                D_batch_size = G_batch_size
 
                 hat_amps = hat_target_amp[:D_batch_size]
                 target_amps = hat_target_amp[D_batch_size:]
@@ -295,14 +301,20 @@ class watermelon_gan:
 
                     # propagate the hat and target frequency to different distances
                     hat_target_freq = torch.cat((hat_freq, target_freq), dim=0)
+                    # hat_target_amp, hat_target_phs = (
+                    #     self.propagator.propagate_fixed_multiple_distances_freq2amp_SD(
+                    #         hat_target_freq
+                    #     )
+                    # )
                     hat_target_amp, hat_target_phs = (
-                        self.propagator.propagate_fixed_multiple_distances_freq2amp_SD(
+                        self.propagator.propagate_fixed_multiple_distances_multiple_samples_freq2amp_SD(
                             hat_target_freq
                         )
                     )
 
                     # the hat and target amplitude at multible distances
-                    D_batch_size = G_batch_size * self.distance_num
+                    # D_batch_size = G_batch_size * self.distance_num
+                    D_batch_size = G_batch_size
 
                     hat_amps = hat_target_amp[:D_batch_size]
                     target_amps = hat_target_amp[D_batch_size:]
