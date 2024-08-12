@@ -6,7 +6,7 @@ from torch.nn import functional as F
 from ..utilities import try_gpu
 
 
-class data_loader_amp_phs_img_depth(Dataset):
+class dataloaderAmpPhsImgDepth(Dataset):
 
     def __init__(
         self,
@@ -53,7 +53,7 @@ class data_loader_amp_phs_img_depth(Dataset):
         )
 
 
-class data_loader_amp_2PIphs(Dataset):
+class dataloaderAmpPIPhs(Dataset):
     def __init__(
         self,
         amp_path,

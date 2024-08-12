@@ -7,7 +7,7 @@ from ..utilities import try_gpu
 
 from .RGBD2AP import RGBD2AP
 from .AP2POH import AP2POH
-from ..bandlimited_angular_spectrum_approach import (
+from ..angular_spectrum_method import (
     bandLimitedAngularSpectrumMethod_for_multiple_distances as multiple_distances_propogator,
 )
 

@@ -6,16 +6,16 @@ import torch.autograd as autograd
 
 from .generator import Generator
 from .discriminator import WGANGPDiscriminator192
-from .loss_func import PerceptualLoss, total_variation_loss, focal_phase_gradient_loss
+from .loss_func import perceptualLoss, total_variation_loss, focal_phase_gradient_loss
 
-from ..bandlimited_angular_spectrum_approach import (
+from ..angular_spectrum_method import (
     bandLimitedAngularSpectrumMethod_for_multiple_distances,
 )
 
 from ..utilities import try_gpu, multi_sample_plotter, tensor_normalizor_2D
 
 
-class watermelon_gan:
+class watermelon:
     def __init__(
         self,
         filter_radius_coefficient=0.5,
@@ -47,7 +47,7 @@ class watermelon_gan:
             cuda=True,
         )
 
-        self.perceptual_loss = PerceptualLoss(
+        self.perceptual_loss = perceptualLoss(
             feature_map_layers=[3, 8, 13, 22, 31],
             cuda=True,
         )

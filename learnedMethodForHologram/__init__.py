@@ -1,14 +1,8 @@
 from . import (
-    bandlimited_angular_spectrum_approach,
+    angular_spectrum_method,
     neural_network_components,
     utilities,
     data_processor,
-    optics,
-    watermelon_v1,
-    watermelon_v2,
-    watermelon_v3,
-    watermelon_v4,
-    perceptual_loss,
-    watermelon_GAN,
+    watermelon_hologram,
     metrics,
 )

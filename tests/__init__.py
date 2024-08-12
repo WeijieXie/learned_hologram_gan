@@ -1,1 +1,1 @@
-from . import test_bandlimited_agular_spectrum_approach
+from . import test_angular_spectrum_method

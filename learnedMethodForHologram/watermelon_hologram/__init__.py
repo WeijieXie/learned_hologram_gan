@@ -1,9 +1,9 @@
 from . import (
     RGBD2AP,
     AP2POH,
-    data_processor,
+    data_loader,
     generator,
     discriminator,
-    watermelon_GAN,
+    watermelon,
     loss_func,
 )

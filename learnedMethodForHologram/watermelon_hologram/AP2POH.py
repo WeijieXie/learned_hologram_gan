@@ -5,7 +5,7 @@ from torch.optim.lr_scheduler import ReduceLROnPlateau
 
 from ..utilities import try_gpu, generate_checkerboard_mask, amplitude_normalizor
 
-from ..bandlimited_angular_spectrum_approach import (
+from ..angular_spectrum_method import (
     bandLimitedAngularSpectrumMethod_for_single_fixed_distance as fixed_distance_propogator,
 )
 from ..neural_network_components import miniResNet, ChannelWiseSymmetricConv
@@ -54,22 +54,12 @@ class AP2POH(nn.Module):
             filter_radius_coefficient=filter_radius_coefficient,
             pixel_pitch=pixel_pitch,
             wave_length=wave_length,
-            # pad_size=192,
-            # pixel_pitch=3.74e-6,
-            # wave_length=torch.tensor([638e-9, 520e-9, 450e-9]),
             band_limit=False,
             cuda=cuda,
             distance=distance,
-            # distance=torch.tensor([1e-3]),
         )
 
         self.part1 = ChannelWiseSymmetricConv(kernel_size=3, padding=1).to(self.device)
-        # self.filter_radius_coefficient = nn.Parameter(
-        #     torch.tensor(
-        #         [filter_radius_coefficient], requires_grad=True, device=self.device
-        #     ),
-        #     requires_grad=True,
-        # )
 
         self._initialize_weights()
 
@@ -78,8 +68,6 @@ class AP2POH(nn.Module):
             if freeze:
                 self.eval()
                 self.requires_grad_(False)
-        # else:
-        #     self.filter_radius_coefficient.requires_grad_(False)
 
     def dataloader_filter(self, amp, phs, filter_radius_coefficient):
         g_filtered = self.propagator.cropping(
@@ -112,22 +100,6 @@ class AP2POH(nn.Module):
         return torch.cat((sin_phs, cos_phs), dim=-3)
 
     def forward(self, amp_z, phs_z):
-
-        # complex_field = self.propagator.propagate_AP2C_backward(amp_z, phs_z)
-        # part1_input = torch.cat(
-        #     (torch.real(complex_field), torch.imag(complex_field)), dim=-3
-        # )
-        # part1_output = self.part1(part1_input) - 0.5
-        # modified_complex_field = (
-        #     torch.complex(part1_output[:, :3], part1_output[:, 3:]) + complex_field
-        # )
-        # # Double phase method
-        # POH = self.double_phase_method(
-        #     amplitude_normalizor(torch.abs(modified_complex_field)),
-        #     torch.angle(modified_complex_field),
-        # )
-        # return POH
-
         # amplitude modulation
         complex_field = self.propagator.propagate_AP2C_backward(amp_z, phs_z)
         modified_complex_field = torch.complex(
@@ -181,8 +153,6 @@ class AP2POH(nn.Module):
             min_lr=1e-6,
         )
 
-        xxx = 0  #####################################################################
-
         for epoch in range(epochs):
 
             # train
@@ -202,7 +172,6 @@ class AP2POH(nn.Module):
 
                 self.optimizer.zero_grad()
                 l.backward()
-                # xxx = self.filter_radius_coefficient.grad.item()  #####################
                 self.optimizer.step()
 
                 train_loss += l.item()
@@ -231,7 +200,7 @@ class AP2POH(nn.Module):
             self.train_loss.append(average_train_loss)
             self.test_loss.append(average_test_loss)
             print(
-                f"epoch {epoch + 1}, train loss {average_train_loss:.7f}, test loss {average_test_loss:.7f},filter_radius_coefficient {filter_radius_coefficient.item()},gradient {xxx}"
+                f"epoch {epoch + 1}, train loss {average_train_loss:.7f}, test loss {average_test_loss:.7f}"
             )
 
             # update learning rate

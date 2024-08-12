@@ -9,13 +9,13 @@ import torchvision.transforms as transforms
 from ..utilities import try_gpu
 
 
-class PerceptualLoss(nn.Module):
+class perceptualLoss(nn.Module):
     def __init__(
         self,
         feature_map_layers=[3, 8, 13, 22, 31],
         cuda=True,
     ):
-        super(PerceptualLoss, self).__init__()
+        super(perceptualLoss, self).__init__()
         self.device = try_gpu() if cuda else torch.device("cpu")
 
         # pick feature maps from the following layers

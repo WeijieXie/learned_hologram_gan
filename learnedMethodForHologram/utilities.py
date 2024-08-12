@@ -12,54 +12,12 @@ import os
 
 
 def complex_plain(amplitude_tensor, phase_tensor):
-    """
-    Generate the complex tensor from the amplitude and phase tensor
-
-    Args:
-    amplitude_tensor: 2-D or 3-D tensor, the amplitude tensor
-    phase_tensor: 2-D or 3-D tensor, the phase tensor
-
-    Returns:
-    source: 2-D or 3-D tensor, the complex tensor
-    """
     complex_tensor = amplitude_tensor * torch.exp(1j * phase_tensor)
     return complex_tensor
 
 
-def amplitude_tensor_generator_for_phase_only_hologram(image_path_or_tensor):
-    """
-    Generate the uniform amplitude tensor the same size as the phase tensor  with all values are 1.0
-
-    Args:
-    image_path: string, the path of the image
-
-    Returns:
-    amplitude_tensor: 2-D tensor, the amplitude tensor
-    """
-
-    if isinstance(image_path_or_tensor, str):
-        image = Image.open(image_path_or_tensor)
-        width = image.size[0]
-        height = image.size[1]
-        amplitude_tensor = torch.ones([3, height, width])
-        return amplitude_tensor
-    elif isinstance(image_path_or_tensor, torch.Tensor):
-        amplitude_tensor = torch.ones_like(image_path_or_tensor)
-        return amplitude_tensor
-    else:
-        raise ValueError("The input should be a string or a tensor.")
-
-
 def phase_tensor_generator(image_path_or_tensor):
-    """
-    Generate the phase tensor from the image with values normalized to 0-2*pi
 
-    Args:
-    image_path: string, the path of the image
-
-    Returns:
-    phase_tensor: 2-D tensor, the phase tensor
-    """
     if isinstance(image_path_or_tensor, str):
         image = Image.open(image_path_or_tensor)  # convert the image to gray scale
         transform = transforms.ToTensor()
@@ -71,48 +29,6 @@ def phase_tensor_generator(image_path_or_tensor):
         return image_path_or_tensor
     else:
         raise ValueError("The input should be a string or a tensor.")
-
-
-def zero_padding(tensorX):
-    """
-    Pad the last 2 dims of the tensor to double the height and width
-
-    Args:
-    tensorX: x-D tensor, the tensor to be padded
-
-    Returns:
-    tensorX: x-D tensor, the padded tensor
-    """
-    tensorX = torch.nn.functional.pad(
-        tensorX,
-        (
-            tensorX.shape[-1] // 2,
-            tensorX.shape[-1] // 2,
-            tensorX.shape[-2] // 2,
-            tensorX.shape[-2] // 2,
-        ),
-        mode="constant",
-        value=0,
-    )
-    return tensorX
-
-
-def cut_center_256_192(tensor_256):
-    """
-    Cut the last 2 dims of the tensor from doubled size to the original size
-
-    Args:
-    tensorX: x-D tensor, the tensor to be cut
-
-    Returns:
-    tensorX: x-D tensor, the cut tensor
-    """
-    tensor_192 = tensor_256[
-        ...,
-        32:223,
-        32:223,
-    ]
-    return tensor_192
 
 
 def amplitude_normalizor(amp):
@@ -138,34 +54,6 @@ def tensor_normalizor_2D(intensity):
     min, _ = torch.min(min, dim=-2, keepdim=True)
     tensor_normalized = (intensity - min) / (max - min)
     return tensor_normalized
-
-
-def amplitude_calculator(complex_tensor):
-    """
-    Calculate the amplitude from the complex tensor
-
-    Args:
-    complex_tensor: x-D tensor, the complex tensor
-
-    Returns:
-    amplitude: x-D tensor, the amplitude tensor
-    """
-    amplitude = torch.abs(complex_tensor)
-    return amplitude
-
-
-def phase_calculator(complex_tensor):
-    """
-    Calculate the phase from the complex tensor
-
-    Args:
-    complex_tensor: x-D tensor, the complex tensor
-
-    Returns:
-    phase: x-D tensor, the phase tensor
-    """
-    phase = torch.angle(complex_tensor)
-    return phase
 
 
 def intensity_calculator(complex_tensor, intensity_norm=True):

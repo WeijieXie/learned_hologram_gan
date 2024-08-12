@@ -12,14 +12,8 @@ def test(output_directory="output/test_output", cuda=False):
     ).to(device)
     amplitude_tensor = torch.ones_like(phase_tensor).to(device)
     distances = torch.linspace(-1e-3, 2.5e-3, 4).to(device)
-    spacial_frequency_filter = (
-        learnedMethodForHologram.utilities.generate_circular_frequency_mask(
-            sample_row_num=2400,
-            sample_col_num=4094,
-            radius=800,
-        )
-    )
-    propagator = learnedMethodForHologram.bandlimited_angular_spectrum_approach.bandLimitedAngularSpectrumMethod(
+
+    propagator = learnedMethodForHologram.angular_spectrum_method.bandLimitedAngularSpectrumMethod(
         sample_row_num=2400,
         sample_col_num=4094,
         pixel_pitch=3.74e-6,
@@ -36,22 +30,13 @@ def test(output_directory="output/test_output", cuda=False):
         intensities
     )
 
-    # print(normalized_intensities.shape)
-    # max, _ = torch.max(normalized_intensities, dim=-1, keepdim=True)
-    # max, _ = torch.max(max, dim=-2, keepdim=True)
-    # min, _ = torch.min(normalized_intensities, dim=-1, keepdim=True)
-    # min, _ = torch.min(min, dim=-2, keepdim=True)
-    # print(max.shape, min.shape)
-    # print(max.squeeze())
-    # print(min.squeeze())
-
-    learnedMethodForHologram.utilities.multi_sample_plotter(
-        normalized_intensities,
-        titles=None,
-        rgb_img=True,
-        save_dir=output_directory,
-        color=0,
-    )
+    # learnedMethodForHologram.utilities.multi_sample_plotter(
+    #     normalized_intensities,
+    #     titles=None,
+    #     rgb_img=True,
+    #     save_dir=output_directory,
+    #     color=0,
+    # )
 
 
 if __name__ == "__main__":
