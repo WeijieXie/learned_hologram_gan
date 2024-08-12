@@ -343,6 +343,24 @@ class UNet(nn.Module):
         return self.final_layer(decoder4)
 
 
+class RGBD_UNet(nn.Module):
+    def __init__(self):
+        super(RGBD_UNet, self).__init__()
+        self.UNet_R = UNet(output_channels=2)
+        self.UNet_G = UNet(output_channels=2)
+        self.UNet_B = UNet(output_channels=2)
+
+    def forward(self, RGBD):
+        R = self.UNet_R(RGBD[:, [0, 3]])
+        G = self.UNet_G(RGBD[:, [1, 3]])
+        B = self.UNet_B(RGBD[:, [2, 3]])
+
+        RGB_amp = torch.cat((R[:, :1], G[:, :1], B[:, :1]), dim=1)
+        RGB_phs = torch.cat((R[:, 1:], G[:, 1:], B[:, 1:]), dim=1)
+
+        return torch.cat((RGB_amp, RGB_phs), dim=1)
+
+
 class UNet_imgDepth2AP_deprecated_v1(UNet):
     def __init__(self, output_channels=6):
         super(UNet_imgDepth2AP_deprecated_v1, self).__init__(output_channels)
