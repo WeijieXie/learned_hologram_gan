@@ -88,8 +88,6 @@ class bandLimitedAngularSpectrumMethod:
         )
         H = self.generate_transfer_function(distances)
         G_z = G_0 * H * self.diffraction_limited_mask
-        # G_z = G_0 * H
-        # intensity = torch.abs(self.cropping(torch.fft.ifft2(G_z))) ** 2
         intensity = torch.abs(self.cropping(torch.fft.ifft2(G_z)))
 
         return intensity
@@ -151,9 +149,6 @@ class bandLimitedAngularSpectrumMethod:
             sample_row_num=self.samplingRowNum,
             sample_col_num=self.samplingColNum,
             radius=min(self.samplingRowNum, self.samplingColNum) * radius_coefficient,
-            # radius=min(self.samplingRowNum, self.samplingColNum) // 2,
-            # which picks 2/3 frequencies on the frequency domain
-            # radius=192,
         ).to(self.device)
 
     def generate_w_grid(self):
@@ -363,78 +358,9 @@ class bandLimitedAngularSpectrumMethod_for_single_fixed_distance(
         )  # because of the direction of the propagation
         return torch.cat((torch.abs(g_z), torch.angle(g_z)), dim=1)
 
-    def propagate_P2I(
-        self,
-        phase_tensor,
-    ):
-        """
-        Propagate the phase tensor of the object to the intensity tensor of the image.
-        The propagation direction is forward.
-
-        Args:
-            phase_tensor (torch.Tensor): The phase tensor of the object.
-
-        Returns:
-            torch.Tensor: The intensity tensor of the image.
-        """
-        G_0 = torch.fft.fft2(self.padding(torch.exp(1j * phase_tensor)))
-        G_z = G_0 * self.H * self.diffraction_limited_mask
-        return torch.abs(self.cropping(torch.fft.ifft2(G_z))) ** 2
-
-    def propagate_P2IP(
-        self,
-        phase_tensor,
-    ):
-        G_0 = torch.fft.fft2(self.padding(torch.exp(1j * phase_tensor)))
-        G_z = G_0 * self.H * self.diffraction_limited_mask
-        g_z = self.cropping(torch.fft.ifft2(G_z))
-        return torch.cat(
-            (torch.abs(g_z) ** 2, torch.angle(g_z)), dim=1
-        )  # dim = 0 is the batch size
-
-    def propagate_P2AP(
-        self,
-        phase_tensor,
-    ):
-        G_0 = torch.fft.fft2(self.padding(torch.exp(1j * phase_tensor)))
-        G_z = G_0 * self.H * self.diffraction_limited_mask
-        g_z = self.cropping(torch.fft.ifft2(G_z))
-        return torch.cat(
-            (torch.abs(g_z), torch.angle(g_z)), dim=1
-        )  # dim = 0 is the batch size
-
-    def propagate_P2AAP(
-        self,
-        phase_tensor,
-    ):
-        """
-        This method is designed for v4. It returns a tensor with 9 channels.
-        """
-        G_0 = torch.fft.fft2(self.padding(torch.exp(1j * phase_tensor)))
-        G_z = G_0 * self.H
-        G_z_4f = G_z * self.diffraction_limited_mask
-        g_z_6_channels = self.cropping(torch.fft.ifft2(torch.cat((G_z_4f, G_z), dim=1)))
-
-        # return 3 + 3 + 3 : 3 channels of filtered amplitude + 3 channels of amplitude + 3 channels of phs
-        return torch.cat(
-            (torch.abs(g_z_6_channels), torch.angle(g_z_6_channels[:, 3:])), dim=1
-        )
-
     # --------------------------------------------------------------------------------------------------------------------
-    # -----------------------------------------------------------For GAN--------------------------------------------------
     # --------------------------------------------------------------------------------------------------------------------
-
-    def propagate_AP2AP_backward(
-        self,
-        amp_z,
-        phs_z,
-    ):
-        """
-        For GAN
-        """
-        G_z = torch.fft.fft2(self.padding(amp_z * torch.exp(1j * phs_z)))
-        g_0 = self.cropping(torch.fft.ifft2(G_z / self.H))
-        return torch.abs(g_0), torch.angle(g_0)
+    # --------------------------------------------------------------------------------------------------------------------
 
     def propagate_AP2C_backward(
         self,
@@ -488,29 +414,6 @@ class bandLimitedAngularSpectrumMethod_for_single_fixed_distance(
         g_z = self.cropping(torch.fft.ifft2(G_z_filtered))
         return torch.abs(g_z), torch.angle(g_z)
 
-    def propagate_AP2AP_forward(
-        self,
-        amp_0,
-        phs_0,
-        filter_radius_coefficient=torch.tensor(0.5),
-    ):
-        """
-        For GAN
-        """
-        G_0 = torch.fft.fft2(self.padding(amp_0 * torch.exp(1j * phs_0)))
-
-        # because of the direction of the propagation
-        g_z = self.cropping(
-            torch.fft.ifft2(
-                G_0
-                * self.H
-                * self.generate_circular_frequency_mask_differentiable(
-                    filter_radius_coefficient
-                )
-            )
-        )
-        return torch.abs(g_z), torch.angle(g_z)
-
     def generate_circular_frequency_mask_differentiable(
         self,
         filter_radius_coefficient,
@@ -522,16 +425,6 @@ class bandLimitedAngularSpectrumMethod_for_single_fixed_distance(
         )
 
         return mask
-
-    def generate_circular_frequency_mask(
-        self,
-        filter_radius_coefficient,
-    ):
-        shorter_edge = min(self.samplingRowNum, self.samplingColNum)
-        radius = shorter_edge * filter_radius_coefficient
-
-        mask = torch.ones_like(self.circular_frequency_mask_differentiable_grid)
-        mask[self.circular_frequency_mask_differentiable_grid > radius] = 0.0
 
     # --------------------------------------------------------------------------------------------------------------------
     # --------------------------------------------------------------------------------------------------------------------
@@ -617,23 +510,16 @@ class bandLimitedAngularSpectrumMethod_for_multiple_distances(
         g_z = self.cropping(torch.fft.ifft2(G_z))
         return torch.abs(g_z), torch.angle(g_z)
 
-    def propagate_fixed_multiple_distances_freq2amp_SD(self, G_0):
+    def propagate_fixed_multiple_distances_freq2amp(self, G_0):
         G_z = G_0.unsqueeze(1) * self.H * self.diffraction_limited_mask
         g_z = self.cropping(
             torch.fft.ifft2(G_z.view(-1, 3, self.samplingRowNum, self.samplingColNum))
         )
         return torch.abs(g_z), torch.angle(g_z)
 
-    def propagate_fixed_multiple_distances_multiple_samples_freq2amp_SD(self, G_0):
-        # print("G_0.shape: ", G_0.shape)
-        # print(
-        #     "G_0.view(2, -1, 3, self.samplingRowNum, self.samplingColNum).shape: ",
-        #     G_0.view(2, -1, 3, self.samplingRowNum, self.samplingColNum).shape,
-        # )
-        # print("self.H.shape: ", self.H.shape)
+    def propagate_fixed_multiple_distances_multiple_samples_freq2amp(self, G_0):
         indices = torch.randperm(self.H.size(0))[0 : G_0.size(0) // 2]
         H = self.H[indices]
-        # print("H.shape: ", H.shape)
         G_z = (
             G_0.view(2, -1, 3, self.samplingRowNum, self.samplingColNum)
             * H
@@ -642,18 +528,7 @@ class bandLimitedAngularSpectrumMethod_for_multiple_distances(
         g_z = self.cropping(
             torch.fft.ifft2(G_z.view(-1, 3, self.samplingRowNum, self.samplingColNum))
         )
-        # print("g_z.shape: ", g_z.shape)
         return torch.abs(g_z), torch.angle(g_z)
-
-    def propagate_fixed_multiple_distances_freq2amp_DS(self, G_0):
-        G_z = G_0 * (self.H.unsqueeze(1)) * self.diffraction_limited_mask
-        return torch.abs(
-            self.cropping(
-                torch.fft.ifft2(
-                    G_z.view(-1, 3, self.samplingRowNum, self.samplingColNum)
-                )
-            )
-        )
 
     def filter_AP2filteredFreq(self, amp, phs):
         phs = 2 * torch.pi * phs
