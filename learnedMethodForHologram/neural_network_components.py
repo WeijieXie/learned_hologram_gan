@@ -41,7 +41,7 @@ class SymmetricConv2d(nn.Module):
 
         # Create a single parameter for each unique distance
         unique_distances = self.get_unique_distances()
-        self.params = nn.Parameter(torch.randn(len(unique_distances)))
+        self.params = nn.Parameter(torch.abs(torch.randn(len(unique_distances))))
         self.bias = nn.Parameter(torch.zeros(1))
         self.distance_map = self.create_distance_map(unique_distances)
 
