@@ -9,6 +9,7 @@ import random
 
 import zipfile
 import os
+import json
 
 
 def complex_plain(amplitude_tensor, phase_tensor):
@@ -376,3 +377,48 @@ def gpu_timer(operation, repeat=100):
 def unzip_file(zip_path, dest_path):
     with zipfile.ZipFile(zip_path, "r") as zip_ref:
         zip_ref.extractall(dest_path)
+
+
+def extract_nested_value(data, keys):
+
+    if len(keys) == 1:
+        return data[keys[0]]
+    return extract_nested_value(data[keys[0]], keys[1:])
+
+
+def training_process_visualizer(json_files, metrics, output_file="plot.png"):
+
+    plt.figure(figsize=(10, 6))
+
+    for json_file in json_files:
+        with open(json_file, "r") as f:
+            data = json.load(f)
+
+        n_train = data["n_train"]
+
+        label = os.path.splitext(os.path.basename(json_file))[0]
+
+        for metric in metrics:
+            metric_data = extract_nested_value(data, metric.split("/"))
+            plt.plot(n_train, metric_data, label=f"{label} - {metric.split('/')[-1]}")
+
+    plt.xlabel("n_train")
+    plt.ylabel("Metric Value")
+    plt.title("Training and Validation Metrics")
+    plt.legend(loc="best")
+
+    for json_file in json_files:
+        with open(json_file, "r") as f:
+            data = json.load(f)
+
+        n_train = data["n_train"]
+        epoch_positions = data["epoch"]
+
+        # for i, epoch_pos in enumerate(epoch_positions):
+        #     plt.axvline(x=n_train[epoch_pos], color='gray', linestyle='--', linewidth=0.5)
+        #     plt.text(n_train[epoch_pos], plt.ylim()[0], f'Epoch {i+1}', rotation=90, verticalalignment='bottom')
+
+    plt.grid(True)
+    plt.tight_layout()
+    plt.savefig(output_file)
+    plt.show()
