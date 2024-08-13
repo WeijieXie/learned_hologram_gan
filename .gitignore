@@ -2,6 +2,7 @@
 .vscode
 *.png
 *.exr
+*.json
 *.tfrecord
 *.bin
 *.pth
