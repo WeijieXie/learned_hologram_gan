@@ -49,3 +49,19 @@ class WGANGPDiscriminator192(nn.Module):
         x = self.block6(x)
         x = self.conv(x)
         return self.flatten(x)
+
+
+class fakeDiscriminator(nn.Module):
+    def __init__(
+        self,
+        pretrained_model_path=None,
+        feature_d=32,
+        cuda=True,
+    ):
+        super(fakeDiscriminator, self).__init__()
+        self.a = nn.parameter.Parameter(torch.tensor([1.0]))
+        self.device = torch.device("cuda") if cuda else torch.device("cpu")
+        self._requires_grad = False
+
+    def forward(self, _):
+        return torch.tensor([0.0], device=self.device)
