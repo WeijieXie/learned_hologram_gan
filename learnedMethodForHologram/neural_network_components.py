@@ -95,6 +95,14 @@ class ChannelWiseSymmetricConv(nn.Module):
         return out
 
 
+class fakeChannelWiseSymmetricConv(nn.Module):
+    def __init__(self, kernel_size=3, padding=1):
+        super(fakeChannelWiseSymmetricConv, self).__init__()
+
+    def forward(self, x):
+        return x
+
+
 class miniResNet(nn.Module):
     def __init__(self, output_channels=3):
         super(miniResNet, self).__init__()
