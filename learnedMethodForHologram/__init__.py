@@ -4,5 +4,4 @@ from . import (
     utilities,
     data_processor,
     watermelon_hologram,
-    metrics,
 )
