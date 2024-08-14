@@ -41,12 +41,13 @@ class bandLimitedAngularSpectrumMethod:
 
         self.originalRowNum = sample_row_num
         self.originalColNum = sample_col_num
-        self.samplingRowNum = sample_row_num + 2 * pad_size
-        self.samplingColNum = sample_col_num + 2 * pad_size * (
-            sample_col_num // sample_row_num
-        )
 
-        self.pad_size = pad_size
+        self.pad_size_row = pad_size
+        self.pad_size_col = int(pad_size * (sample_col_num / sample_row_num))
+
+        self.samplingRowNum = sample_row_num + 2 * self.pad_size_row
+        self.samplingColNum = sample_col_num + 2 * self.pad_size_col
+
         self.pixel_pitch = pixel_pitch
         self.wave_length = wave_length
         self.band_limit = band_limit
@@ -222,12 +223,17 @@ class bandLimitedAngularSpectrumMethod:
         Returns:
             torch.Tensor: The padded tensor.
         """
-        if self.pad_size == 0:
+        if self.pad_size_row == 0:
             return tensor
         else:
             return torch.nn.functional.pad(
                 tensor,
-                (self.pad_size, self.pad_size, self.pad_size, self.pad_size),
+                (
+                    self.pad_size_col,
+                    self.pad_size_col,
+                    self.pad_size_row,
+                    self.pad_size_row,
+                ),
                 mode="constant",
                 value=0,
             )
@@ -243,11 +249,14 @@ class bandLimitedAngularSpectrumMethod:
         Returns:
             torch.Tensor: The inverted tensor.
         """
-        if self.pad_size == 0:
+        if self.pad_size_row == 0:
             return tensor
         else:
             return tensor[
-                :, :, self.pad_size : -self.pad_size, self.pad_size : -self.pad_size
+                :,
+                :,
+                self.pad_size_row : -self.pad_size_row,
+                self.pad_size_col : -self.pad_size_col,
             ]
 
 
@@ -508,16 +517,22 @@ class bandLimitedAngularSpectrumMethod_for_multiple_distances(
             -1, 3, self.samplingRowNum, self.samplingColNum
         )
         g_z = self.cropping(torch.fft.ifft2(G_z))
-        return torch.abs(g_z), torch.angle(g_z)
 
-    def propagate_multiple_samples_with_all_fixed_multiple_distances_freq2amp(self, G_0):
+        # return torch.abs(g_z), torch.angle(g_z)
+        return torch.abs(g_z)
+
+    def propagate_multiple_samples_with_all_fixed_multiple_distances_freq2amp(
+        self, G_0
+    ):
         G_z = G_0.unsqueeze(1) * self.H * self.diffraction_limited_mask
         g_z = self.cropping(
             torch.fft.ifft2(G_z.view(-1, 3, self.samplingRowNum, self.samplingColNum))
         )
         return torch.abs(g_z), torch.angle(g_z)
 
-    def propagate_multiple_samples_with_random_fixed_multiple_distances_freq2amp(self, G_0):
+    def propagate_multiple_samples_with_random_fixed_multiple_distances_freq2amp(
+        self, G_0
+    ):
         indices = torch.randperm(self.H.size(0))[0 : G_0.size(0) // 2]
         H = self.H[indices]
         G_z = (
