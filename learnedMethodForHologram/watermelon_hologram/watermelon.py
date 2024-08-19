@@ -35,6 +35,7 @@ class watermelon:
         self,
         filter_radius_coefficient=0.5,
         pad_size=416,
+        kernel_size=3,
         distance_stack=torch.linspace(-1.5e-4, 0.0, 8)[:-1],
         pretrained_model_path_G=None,
         pretrained_model_path_D=None,
@@ -51,6 +52,7 @@ class watermelon:
             sample_col_num=input_shape[-1],
             pad_size=pad_size,
             filter_radius_coefficient=filter_radius_coefficient,
+            kernel_size=kernel_size,
             pixel_pitch=3.74e-6,
             wave_length=torch.tensor([638e-9, 520e-9, 450e-9]),
             distance=torch.tensor([1e-3]),
@@ -885,9 +887,7 @@ class watermelon_without_GAN_and_focal_sincos_phase_loss(watermelon_without_GAN)
         return loss
 
 
-class watermelon_without_GAN_and_phase_sincos_gradient_loss(
-    watermelon_without_GAN
-):
+class watermelon_without_GAN_and_phase_sincos_gradient_loss(watermelon_without_GAN):
     def __init__(
         self,
         filter_radius_coefficient=0.5,
@@ -898,9 +898,7 @@ class watermelon_without_GAN_and_phase_sincos_gradient_loss(
         input_shape=(1, 4, 192, 192),
         cuda=True,
     ):
-        super(
-            watermelon_without_GAN_and_phase_sincos_gradient_loss, self
-        ).__init__(
+        super(watermelon_without_GAN_and_phase_sincos_gradient_loss, self).__init__(
             filter_radius_coefficient,
             pad_size,
             distance_stack,

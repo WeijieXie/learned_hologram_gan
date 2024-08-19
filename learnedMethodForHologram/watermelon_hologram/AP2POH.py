@@ -25,6 +25,7 @@ class AP2POH(nn.Module):
         pixel_pitch=3.74e-6,
         wave_length=torch.tensor([638e-9, 520e-9, 450e-9]),
         distance=torch.tensor([1e-3]),
+        kernel_size=3,
     ):
         super(AP2POH, self).__init__()
 
@@ -59,7 +60,9 @@ class AP2POH(nn.Module):
             distance=distance,
         )
 
-        self.part1 = ChannelWiseSymmetricConv(kernel_size=3, padding=1).to(self.device)
+        self.part1 = ChannelWiseSymmetricConv(
+            kernel_size=kernel_size, padding=(kernel_size - 1) // 2
+        ).to(self.device)
 
         self._initialize_weights()
 

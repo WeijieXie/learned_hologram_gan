@@ -19,6 +19,7 @@ class Generator(nn.Module):
         sample_col_num=192,
         pad_size=160,
         filter_radius_coefficient=0.5,
+        kernel_size=3,
         pixel_pitch=3.74e-6,
         wave_length=torch.tensor([638e-9, 520e-9, 450e-9]),
         distance=torch.tensor([1e-3]),
@@ -46,6 +47,7 @@ class Generator(nn.Module):
             pixel_pitch=pixel_pitch,
             wave_length=wave_length,
             distance=distance,
+            kernel_size=kernel_size,
         )
 
         if pretrained_model_path is not None:
