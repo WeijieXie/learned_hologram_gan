@@ -106,7 +106,8 @@ def multi_channel_plotter(
         rgb_tensor = rgb_tensor.permute(1, 2, 0)
 
         plt.figure()
-        plt.imshow(rgb_tensor)
+        # plt.imshow(rgb_tensor)
+        plt.imshow(tensor_to_plot, cmap="gray")
         plt.axis("off")
         plt.title(title)
         plt.show()
@@ -386,11 +387,13 @@ def extract_nested_value(data, keys):
     return extract_nested_value(data[keys[0]], keys[1:])
 
 
-def training_process_visualizer(json_files, metrics, output_file="plot.png"):
+def training_process_visualizer(
+    json_files, metrics, output_file="plot.png", labels=None
+):
 
     plt.figure(figsize=(10, 6))
 
-    for json_file in json_files:
+    for i,json_file in enumerate(json_files):
         with open(json_file, "r") as f:
             data = json.load(f)
 
@@ -398,25 +401,32 @@ def training_process_visualizer(json_files, metrics, output_file="plot.png"):
 
         label = os.path.splitext(os.path.basename(json_file))[0]
 
-        for metric in metrics:
-            metric_data = extract_nested_value(data, metric.split("/"))
-            plt.plot(n_train, metric_data, label=f"{label} - {metric.split('/')[-1]}")
+        if labels is not None:
+            for metric in metrics:
+                metric_data = extract_nested_value(data, metric.split("/"))
+                plt.plot(n_train, metric_data, label=f"{labels[i]} - {metric.split('/')[-1]}")
+                # plt.plot(n_train[20:], metric_data[20:], label=f"{labels[i]} - {metric.split('/')[-1]}")
+        else:
+            for metric in metrics:
+                metric_data = extract_nested_value(data, metric.split("/"))
+                plt.plot(n_train, metric_data, label=f"{label} - {metric.split('/')[-1]}")
+                # plt.plot(n_train[20:], metric_data[20:], label=f"{label} - {metric.split('/')[-1]}")
 
-    plt.xlabel("n_train")
-    plt.ylabel("Metric Value")
-    plt.title("Training and Validation Metrics")
+    plt.xlabel("Number of Training Samples")
+    plt.ylabel("Value")
+    plt.title(f"{metric.split('/')[-1]}")
     plt.legend(loc="best")
 
-    for json_file in json_files:
-        with open(json_file, "r") as f:
-            data = json.load(f)
+    # for json_file in json_files:
+    #     with open(json_file, "r") as f:
+    #         data = json.load(f)
 
-        n_train = data["n_train"]
-        epoch_positions = data["epoch"]
+    #     n_train = data["n_train"]
+    #     epoch_positions = data["epoch"]
 
-        # for i, epoch_pos in enumerate(epoch_positions):
-        #     plt.axvline(x=n_train[epoch_pos], color='gray', linestyle='--', linewidth=0.5)
-        #     plt.text(n_train[epoch_pos], plt.ylim()[0], f'Epoch {i+1}', rotation=90, verticalalignment='bottom')
+    #     for i, epoch_pos in enumerate(epoch_positions):
+    #         plt.axvline(x=n_train[epoch_pos], color='gray', linestyle='--', linewidth=0.5)
+    #         plt.text(n_train[epoch_pos], plt.ylim()[0], f'Epoch {i+1}', rotation=90, verticalalignment='bottom')
 
     plt.grid(True)
     plt.tight_layout()
