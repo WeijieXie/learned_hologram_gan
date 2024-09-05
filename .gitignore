@@ -11,6 +11,6 @@ __pycache__
 
 learnedMethodForHologram.egg-info/*
 
-!data/test_384
+!data/test_384/*
 !output/models/watermelon_GAN_GENERATOR_E_384_COMPARISON.pth
-!output/test_output/terminalTest
+!output/test_output/terminalTest/*
