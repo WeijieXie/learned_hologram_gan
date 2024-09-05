@@ -13,12 +13,30 @@ import json
 
 
 def complex_plain(amplitude_tensor, phase_tensor):
+    """
+    Generate the complex tensor from the amplitude and phase tensor
+
+    Args:
+    amplitude_tensor: tensor, the amplitude tensor
+    phase_tensor: tensor, the phase tensor
+
+    Returns:
+    complex_tensor: tensor, the complex tensor
+    """
     complex_tensor = amplitude_tensor * torch.exp(1j * phase_tensor)
     return complex_tensor
 
 
 def phase_tensor_generator(image_path_or_tensor):
+    """
+    Generate the phase tensor from the image path or tensor
 
+    Args:
+    image_path_or_tensor: string or tensor, the image path or tensor
+
+    Returns:
+    phase_tensor: tensor, the phase tensor
+    """
     if isinstance(image_path_or_tensor, str):
         image = Image.open(image_path_or_tensor)  # convert the image to gray scale
         transform = transforms.ToTensor()
@@ -33,38 +51,37 @@ def phase_tensor_generator(image_path_or_tensor):
 
 
 def amplitude_normalizor(amp):
+    """
+    Normalize the amplitude tensor to 0-1
+
+    Args:
+    amp: tensor, the amplitude tensor
+
+    Returns:
+    amp: tensor, the normalized amplitude tensor
+    """
     max, _ = torch.max(amp, dim=-1, keepdim=True)
     max, _ = torch.max(max, dim=-2, keepdim=True)
     amp = amp / (max * 1.01)
     return amp
 
 
-def tensor_normalizor_2D(intensity):
+def tensor_normalizor_2D(tensor_to_normalize):
     """
-    Normalize the 2-D intensity tensor to 0-255
+    Normalize the tensor to 0-1 by the maximum and minimum value in each channel
 
     Args:
-    intensity: 2-D tensor, the intensity tensor
+    intensity: tensor, the intensity tensor
 
     Returns:
-    intensity_normalized: 2-D tensor, the normalized intensity tensor
+    tensor_normalized: tensor, the normalized tensor
     """
-    max, _ = torch.max(intensity, dim=-1, keepdim=True)
+    max, _ = torch.max(tensor_to_normalize, dim=-1, keepdim=True)
     max, _ = torch.max(max, dim=-2, keepdim=True)
-    min, _ = torch.min(intensity, dim=-1, keepdim=True)
+    min, _ = torch.min(tensor_to_normalize, dim=-1, keepdim=True)
     min, _ = torch.min(min, dim=-2, keepdim=True)
-    tensor_normalized = (intensity - min) / (max - min)
+    tensor_normalized = (tensor_to_normalize - min) / (max - min)
     return tensor_normalized
-
-
-def intensity_calculator(complex_tensor, intensity_norm=True):
-    """
-    Calculate the intensity from the complex tensor
-    """
-    intensity = complex_tensor.abs() ** 2
-    if intensity_norm:
-        intensity = tensor_normalizor_2D(intensity)
-    return intensity
 
 
 def multi_channel_plotter(
@@ -166,6 +183,19 @@ def multi_sample_plotter(
     save_dir=None,
     color=0,  # r = 0, g = 1, b = 2
 ):
+    """
+    Plot the multi-channel tensor
+
+    Args:
+    tensor_to_plot: 4-D tensor, the tensor to plot
+    titles: list of strings, the titles of the plot
+    rgb_img: bool, whether to plot the RGB image
+    save_dir: string, the directory to save the plot
+    color: int, the color channel to plot, only used when the tensor can be squeeze to 2-D
+
+    Returns:
+    None
+    """
     if titles is None:
         titles = range(len(tensor_to_plot))
     tensor_to_plot.to("cpu")
@@ -192,7 +222,6 @@ def generate_circular_frequency_mask(
     Returns:
     mask: 2-D tensor, the circular frequency mask
     """
-
     shorter_edge = min(sample_row_num, sample_col_num)
     if radius > shorter_edge / 2:
         raise ValueError(
@@ -219,7 +248,17 @@ def generate_circular_frequency_mask_modified(
     sample_col_num=192,
     filter_radius_coefficient=0.5,
 ):
+    """
+    Generate the circular frequency mask faster without the decay rate, the exception and the if statement
 
+    Args:
+    sample_row_num: int, the number of rows of the mask
+    sample_col_num: int, the number of columns of the mask
+    filter_radius_coefficient: float, the coefficient of the radius of the circular mask
+
+    Returns:
+    mask: 2-D tensor, the circular frequency mask
+    """
     shorter_edge = min(sample_row_num, sample_col_num)
     radius = shorter_edge * filter_radius_coefficient
 
@@ -238,6 +277,16 @@ def prepare_circular_frequency_mask_grid(
     samplingRowNum,
     samplingColNum,
 ):
+    """
+    Prepare the circular frequency mask grid
+
+    Args:
+    samplingRowNum: int, the number of rows of the mask
+    samplingColNum: int, the number of columns of the mask
+
+    Returns:
+    D: tensor, the circular frequency mask grid
+    """
     shorter_edge = min(samplingRowNum, samplingColNum)
 
     # Create a grid of (u, v) coordinates
@@ -253,6 +302,18 @@ def generate_square_frequency_mask(
     x=0,
     y=0,
 ):
+    """
+    Generate the square frequency mask
+
+    Args:
+    sample_row_num: int, the number of rows of the mask
+    sample_col_num: int, the number of columns of the mask
+    x: int, the half length of the mask in the x direction
+    y: int, the half length of the mask in the y direction
+
+    Returns:
+    mask: 2-D tensor, the square frequency mask
+    """
     if 2 * x > sample_row_num or 2 * y > sample_col_num:
         raise ValueError("The mask size is too large.")
     mask = torch.zeros((sample_row_num, sample_col_num))
@@ -296,6 +357,18 @@ def generate_checkerboard_mask(
     cell_size=4,
     reserve=False,
 ):
+    """
+    Generate the checkerboard mask
+
+    Args:
+    height: int, the height of the mask
+    width: int, the width of the mask
+    cell_size: int, the size of the cell
+    reserve: bool, whether to reserve the 0 and 1
+
+    Returns:
+    checkerboard_torch: tensor, the checkerboard mask
+    """
     x = np.arange(width).reshape(1, -1) // cell_size
     y = np.arange(height).reshape(-1, 1) // cell_size
     checkerboard_np = (x + y) % 2
@@ -310,6 +383,14 @@ def generate_checkerboard_mask(
 
 
 def set_seed(seed):
+    """
+    Set the seed for reproducibility
+
+    Args:
+    seed: int, the seed
+
+    Returns:
+    None"""
     torch.manual_seed(seed)
     torch.cuda.manual_seed(seed)
     torch.cuda.manual_seed_all(seed)
@@ -348,16 +429,32 @@ def try_all_gpus():
 
 
 def gpus_info(gpu_list):
+    """
+    Print the information of the GPUs
+    """
     for i, gpu in enumerate(gpu_list):
         print(f"""gpu {i}: {torch.cuda.get_device_name(gpu)}""")
 
 
 def current_gpu_info():
+    """
+    Print the information of the current GPU
+    """
     current_device = torch.cuda.current_device()
     print(f"""current gpu : {torch.cuda.get_device_name(current_device)}""")
 
 
 def gpu_timer(operation, repeat=100):
+    """
+    Measure the time of the operation on GPU
+
+    Args:
+    operation: function, the operation to measure
+    repeat: int, the number of repeats
+
+    Returns:
+    total_time: float, the total time
+    """
     total_time = 0
     # clean the cache on gpu
     torch.cuda.empty_cache()
@@ -376,12 +473,31 @@ def gpu_timer(operation, repeat=100):
 
 
 def unzip_file(zip_path, dest_path):
+    """
+    Unzip the file
+
+    Args:
+    zip_path: string, the path of the zip file
+    dest_path: string, the path to extract the file
+
+    Returns:
+    None
+    """
     with zipfile.ZipFile(zip_path, "r") as zip_ref:
         zip_ref.extractall(dest_path)
 
 
 def extract_nested_value(data, keys):
+    """
+    Extract the nested value from the dictionary
 
+    Args:
+    data: dict, the dictionary
+    keys: list, the list of keys
+
+    Returns:
+    value: the value
+    """
     if len(keys) == 1:
         return data[keys[0]]
     return extract_nested_value(data[keys[0]], keys[1:])
@@ -390,10 +506,21 @@ def extract_nested_value(data, keys):
 def training_process_visualizer(
     json_files, metrics, output_file="plot.png", labels=None
 ):
+    """
+    Visualize the training data in the .json files
 
+    Args:
+    json_files: list, the list of the json files
+    metrics: list, the list of the metrics
+    output_file: string, the output file
+    labels: list, the list of the labels
+
+    Returns:
+    None
+    """
     plt.figure(figsize=(10, 6))
 
-    for i,json_file in enumerate(json_files):
+    for i, json_file in enumerate(json_files):
         with open(json_file, "r") as f:
             data = json.load(f)
 
@@ -404,12 +531,16 @@ def training_process_visualizer(
         if labels is not None:
             for metric in metrics:
                 metric_data = extract_nested_value(data, metric.split("/"))
-                plt.plot(n_train, metric_data, label=f"{labels[i]} - {metric.split('/')[-1]}")
+                plt.plot(
+                    n_train, metric_data, label=f"{labels[i]} - {metric.split('/')[-1]}"
+                )
                 # plt.plot(n_train[20:], metric_data[20:], label=f"{labels[i]} - {metric.split('/')[-1]}")
         else:
             for metric in metrics:
                 metric_data = extract_nested_value(data, metric.split("/"))
-                plt.plot(n_train, metric_data, label=f"{label} - {metric.split('/')[-1]}")
+                plt.plot(
+                    n_train, metric_data, label=f"{label} - {metric.split('/')[-1]}"
+                )
                 # plt.plot(n_train[20:], metric_data[20:], label=f"{label} - {metric.split('/')[-1]}")
 
     plt.xlabel("Number of Training Samples")
