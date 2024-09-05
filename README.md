@@ -94,7 +94,7 @@ python trainingModel.py --train_img_path data/train_384/img.bin \
 
 ## How to Generate Holograms with the Trained Model
 
-To generate holograms using a pre-trained model, you can use the `generatePOH.py` script. The script will take an RGBD image as input and generate a phase-only hologram (POH). Optionally, it can also perform holographic propagation. [Here](data/test_384) are some rgb and depth images from the test dataset which are unseen by the model and can be used to infer the model's performance. The model is also available [here](output/models).
+To generate holograms using a pre-trained model, you can use the `generatePOH.py` script. The script will take an RGBD image as input and generate a phase-only hologram (POH). Optionally, it can also perform holographic propagation. [Here](https://drive.google.com/drive/folders/1cY4B12Rvds-kx5wplE7J2zziAJiuNc2N?usp=drive_link) are some rgb and depth images from the test dataset which are unseen by the model and can be used to infer the model's performance. The model is also available [here](https://drive.google.com/file/d/1aeNwnXnyYWZPoISfCAetESgBlvMHbHEr/view?usp=drive_link).
 
 ### Example Command to Generate a POH
 
