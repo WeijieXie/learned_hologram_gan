@@ -6,6 +6,7 @@
 *.tfrecord
 *.bin
 *.pth
+*.pt
 odak.log
 __pycache__
 
