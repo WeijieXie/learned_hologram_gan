@@ -2,6 +2,8 @@
 
 **Hi, there!**
 
+This project is carried out under the supervision of Prof. Kaan Aksit and his Phd student Yicheng Zhan, who helps the author go through the Fourier Optics, Neural Network and Computer-Generated Hologram. Kaan's Complight Lab also support the physical experiment. [Odak](https://github.com/kaanaksit/odak) project also helps a lot.
+
 This project trains a neural network to generate phase-only holograms from the input of RGBD images. If you're unfamiliar with the background concepts behind holography and deep learning, there's a folder called [`warmingUp`](warmingUp) with Jupyter notebooks that contain basic information. Feel free to check it out if you're interested.
 
 **NOTICE: The pipeline of this project is RAM-intensive. To generate 4K holograms, you will need at least 30GB of RAM (such as in an A100 GPU). For smaller 392x392 holograms, a personal computer should suffice.**
