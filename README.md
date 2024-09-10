@@ -95,10 +95,15 @@ To generate holograms using a pre-trained model, you can use the `generatePOH.py
 ```bash
 mkdir -p output/models
 mkdir -p data/test_384
-mkdir -p output/test_output/terminalTest
 ```
 
 Then put the `img.bin` and `depth.bin` files in the `data/test_384` directory. You can download the files from [Here](https://drive.google.com/drive/folders/17sqLqm9ceuarDo7DlNMHNpFUka0NkbPo?usp=sharing). Also, download the pre-trained model from [Here](https://drive.google.com/file/d/1ajYqa3SbZ4mlmqS9ZGZ1mi08govBxe0b/view?usp=sharing) and put it in the `output/models` directory.
+
+```bash
+gdown --id 1ajYqa3SbZ4mlmqS9ZGZ1mi08govBxe0b -O output/models/watermelon_GAN_GENERATOR_E_384_COMPARISON.pth
+gdown --id 14spMaIZHPF2qLEp63TRj2DHpCQPFYv8M -O data/test_384/img.bin
+gdown --id 1HH72XCbAVictz2vvCmWAPN7_46H-5ky8 -O data/test_384/depth.bin
+```
 
 <!-- ### To download the test data and the pre-trained model, run the following commands:
 ```bash
