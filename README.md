@@ -1,4 +1,4 @@
-# Gan Holography Project
+# Learned Hologram Gan Project
 
 **Hi, there!**
 
