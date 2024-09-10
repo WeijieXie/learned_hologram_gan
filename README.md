@@ -1,4 +1,4 @@
-# Watermelon Project
+# Gan Holography Project
 
 **Hi, there!**
 
