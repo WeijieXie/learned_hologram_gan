@@ -90,6 +90,17 @@ python trainingModel.py --train_img_path data/train_384/img.bin \
 
 To generate holograms using a pre-trained model, you can use the `generatePOH.py` script. The script will take an RGBD image as input and generate a phase-only hologram (POH). Optionally, it can also perform holographic propagation. [Here](https://drive.google.com/drive/folders/17sqLqm9ceuarDo7DlNMHNpFUka0NkbPo?usp=sharing) are some rgb and depth images from the test dataset which are unseen by the model and can be used to infer the model's performance. The model is also available [here](https://drive.google.com/file/d/1ajYqa3SbZ4mlmqS9ZGZ1mi08govBxe0b/view?usp=sharing).
 
+### To download the test data and the pre-trained model, run the following commands:
+
+```bash
+mkdir -p output/models
+curl -L -o output/models/watermelon_GAN_GENERATOR_E_384_COMPARISON.pth "https://drive.google.com/uc?export=download&id=1ajYqa3SbZ4mlmqS9ZGZ1mi08govBxe0b"
+
+mkdir -p data/test_384
+curl -L -o data/test_384/img.bin 'https://drive.google.com/file/d/14spMaIZHPF2qLEp63TRj2DHpCQPFYv8M/view?usp=sharing'
+curl -L -o data/test_384/depth.bin 'https://drive.google.com/file/d/1HH72XCbAVictz2vvCmWAPN7_46H-5ky8/view?usp=sharing'
+```
+
 ### Example Command to Generate a POH
 
 ```bash
