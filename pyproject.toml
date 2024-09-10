@@ -9,7 +9,8 @@ dependencies = [
     "matplotlib==3.8.1",
     "Imath",
     "openexr",
-    "torchmetrics"
+    "torchmetrics",
+    "gdown"
 ]
 
 [build-system]
