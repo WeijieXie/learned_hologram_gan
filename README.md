@@ -22,12 +22,6 @@ This project trains a neural network to generate phase-only holograms from the i
    pip install .
    ```
 
-   You may also need to install the following additional packages:
-
-   ```bash
-   pip install Imath openexr torchmetrics
-   ```
-
 3. **Prepare the dataset**:
 
    You can download the .bin version of the MIT-CGH-4K dataset [here: MIT-CGH-4K-BIN](https://drive.google.com/drive/folders/1cY4B12Rvds-kx5wplE7J2zziAJiuNc2N?usp=drive_link).

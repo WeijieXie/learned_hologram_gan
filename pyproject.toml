@@ -7,6 +7,9 @@ dependencies = [
     "torch==2.1.2",
     "torchvision==0.16.2",
     "matplotlib==3.8.1",
+    "Imath",
+    "openexr",
+    "torchmetrics"
 ]
 
 [build-system]
@@ -14,5 +17,5 @@ requires = ["setuptools", "wheel"]
 build-backend = "setuptools.build_meta"
 
 [tool.setuptools.packages.find]
-include = ["learnedMethodForHologram", "learnedMethodForHologram.*","test"]
+include = ["learnedMethodForHologram", "learnedMethodForHologram.*", "test"]
 exclude = ["tests.tests_odak"]
