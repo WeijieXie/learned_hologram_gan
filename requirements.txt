@@ -1,0 +1,8 @@
+numpy==1.24.3
+torch==2.1.2
+torchvision==0.16.2
+matplotlib==3.8.1
+Imath
+openexr
+torchmetrics
+gdown

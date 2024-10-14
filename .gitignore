@@ -1,0 +1,17 @@
+.ipynb_checkpoints
+.vscode
+*.png
+*.exr
+*.json
+*.tfrecord
+*.bin
+*.pth
+*.pt
+odak.log
+__pycache__
+
+build/*
+
+learnedMethodForHologram.egg-info/*
+
+!output/test_output/terminalTest/*
