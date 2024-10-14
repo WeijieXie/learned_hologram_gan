@@ -13,7 +13,8 @@ This project trains a neural network to generate phase-only holograms from the i
 1. **Clone the repository**:
 
    ```bash
-   git clone https://github.com/WeijieXie/manuscript_watermelon.git
+   git clone https://github.com/WeijieXie/learned_hologram_gan.git
+   cd learned_hologram_gan
    ```
 
 2. **Install the required packages**:
@@ -92,7 +93,7 @@ python trainingModel.py --train_img_path data/train_384/img.bin \
 
 To generate holograms using a pre-trained model, you can use the `generatePOH.py` script. The script will take an RGBD image as input and generate a phase-only hologram (POH). Optionally, it can also perform holographic propagation.  
 
-### To download the test data and the pre-trained model, run the following commands:
+### To download the test data and the pre-trained model, run the following commands
 
 ```bash
 mkdir -p output/models
