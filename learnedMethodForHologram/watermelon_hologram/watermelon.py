@@ -41,6 +41,7 @@ class watermelon:
         pretrained_model_path_D=None,
         input_shape=(1, 4, 192, 192),
         cuda=True,
+        multi_head=False,
     ):
         self.device = try_gpu() if cuda else torch.device("cpu")
 
@@ -57,6 +58,7 @@ class watermelon:
             wave_length=torch.tensor([638e-9, 520e-9, 450e-9]),
             distance=torch.tensor([1e-3]),
             pretrained_model_path=pretrained_model_path_G,
+            multi_head=multi_head,
         )
 
         self.discriminator = WGANGPDiscriminator192(

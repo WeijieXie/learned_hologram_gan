@@ -26,6 +26,7 @@ class Generator(nn.Module):
         pretrained_model_path=None,
         pretrained_model_path_RGBD2AP=None,
         pretrained_model_path_AP2POH=None,
+        multi_head=False,
     ):
         super(Generator, self).__init__()
 
@@ -35,6 +36,7 @@ class Generator(nn.Module):
             freeze=False,
             cuda=True,
             amplitude_scaler=1.1,
+            multi_head=multi_head,
         )
 
         self.part2 = AP2POH(

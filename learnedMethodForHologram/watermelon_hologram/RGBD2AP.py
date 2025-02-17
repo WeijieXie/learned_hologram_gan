@@ -6,7 +6,8 @@ from torch.optim.lr_scheduler import ReduceLROnPlateau
 from ..utilities import try_gpu
 
 from ..neural_network_components import (
-    UNet,
+    UNet_CGH,
+    multi_head_UNet_CGH,
 )
 
 from .loss_func import amp_phs_loss
@@ -20,6 +21,7 @@ class RGBD2AP(nn.Module):
         freeze=False,
         cuda=True,
         amplitude_scaler=1.1,
+        multi_head=False,
     ):
         super(RGBD2AP, self).__init__()
 
@@ -29,8 +31,13 @@ class RGBD2AP(nn.Module):
         self.device = try_gpu() if cuda else torch.device("cpu")
         self.amplitude_scaler = amplitude_scaler
 
-        # a UNet whose input is RGBD and output is amplitude(0~1) and phase(0~1)
-        self.part1 = UNet(output_channels=6).to(self.device)
+        if multi_head:
+            self.part1 = multi_head_UNet_CGH(output_channels=(3, 3)).to(self.device)
+            print("The model is a multi-head UNet")
+        else:
+            # a UNet whose input is RGBD and output is amplitude(0~1) and phase(0~1)
+            self.part1 = UNet_CGH(output_channels=6).to(self.device)
+            print("The model is a single-head UNet")
 
         self._initialize_weights()
 
@@ -44,9 +51,9 @@ class RGBD2AP(nn.Module):
         """
         take the 4 channels of RGBD as input and output the 6 channels of amplitude and phase
         """
-        y = self.part1(RGBD)
-        amp_hat = self.amplitude_scaler * y[:, :3, :, :]  # amplitude
-        phs_hat = 2 * torch.pi * y[:, 3:, :, :]  # phase
+        amp_head, phs_head = self.part1(RGBD)
+        amp_hat = self.amplitude_scaler * amp_head  # amplitude
+        phs_hat = 2 * torch.pi * phs_head  # phase
         return amp_hat, phs_hat
 
     def train_model(
