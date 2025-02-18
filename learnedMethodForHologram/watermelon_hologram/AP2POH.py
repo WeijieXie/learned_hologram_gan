@@ -105,15 +105,15 @@ class AP2POH(nn.Module):
     def forward(self, amp_z, phs_z):
         # amplitude modulation
         complex_field = self.propagator.propagate_AP2C_backward(amp_z, phs_z)
-        modified_complex_field = torch.complex(
-            self.part1(torch.real(complex_field)), self.part1(torch.imag(complex_field))
-        )
-        # Double phase method
-        POH = self.double_phase_method(
-            amplitude_normalizor(torch.abs(modified_complex_field)),
-            torch.angle(modified_complex_field),
-        )
-        return POH
+        # modified_complex_field = torch.complex(
+        #     self.part1(torch.real(complex_field)), self.part1(torch.imag(complex_field))
+        # )
+        # # Double phase method
+        # POH = self.double_phase_method(
+        #     amplitude_normalizor(torch.abs(modified_complex_field)),
+        #     torch.angle(modified_complex_field),
+        # )
+        return complex_field
 
     def train_model(
         self,

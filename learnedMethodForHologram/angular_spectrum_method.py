@@ -391,6 +391,11 @@ class bandLimitedAngularSpectrumMethod_for_single_fixed_distance(
         G_z = G_0 * self.H * self.diffraction_limited_mask
         return G_z
 
+    def propagate_complex2Freq_forward(self, complex_field):
+        G_0 = torch.fft.fft2(self.padding(complex_field))
+        G_z = G_0 * self.H * self.diffraction_limited_mask
+        return G_z
+
     def propagate_POH2AP_forward_with_spectrum_loss(
         self,
         phs_0,

@@ -214,12 +214,12 @@ class watermelon:
                 G_batch_size = RGBD.size(0)
                 n_train += G_batch_size
 
-                # phase at z = z0
-                POH_phs = self.generator(RGBD)
+                # complex field at z = z0
+                complex_field = self.generator(RGBD)
 
                 # filtered frequency of hat at z = z1
-                hat_freq = self.generator.part2.propagator.propagate_POH2Freq_forward(
-                    POH_phs
+                hat_freq = self.generator.part2.propagator.propagate_complex2Freq_forward(
+                    complex_field
                 )
 
                 # filtered frequency of target at z = z1
@@ -497,12 +497,12 @@ class watermelon:
                 n_batch += 1
                 G_batch_size = RGBD.size(0)
 
-                # phase at z = z0
-                POH_phs = self.generator(RGBD)
+                # complex field at z = z0
+                complex_field = self.generator(RGBD)
 
                 # filtered frequency of hat at z = z1
-                hat_freq = self.generator.part2.propagator.propagate_POH2Freq_forward(
-                    POH_phs
+                hat_freq = self.generator.part2.propagator.propagate_complex2Freq_forward(
+                    complex_field
                 )
 
                 # filtered frequency of target at z = z1
