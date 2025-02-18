@@ -428,6 +428,18 @@ class bandLimitedAngularSpectrumMethod_for_single_fixed_distance(
         g_z = self.cropping(torch.fft.ifft2(G_z_filtered))
         return torch.abs(g_z), torch.angle(g_z)
 
+    def propagate_complex2AP_forward(
+        self,
+        complex_field,
+    ):
+        """
+        For GAN
+        """
+        G_0 = torch.fft.fft2(self.padding(complex_field))
+        G_z_filtered = G_0 * self.H * self.diffraction_limited_mask
+        g_z = self.cropping(torch.fft.ifft2(G_z_filtered))
+        return torch.abs(g_z), torch.angle(g_z)
+
     def generate_circular_frequency_mask_differentiable(
         self,
         filter_radius_coefficient,

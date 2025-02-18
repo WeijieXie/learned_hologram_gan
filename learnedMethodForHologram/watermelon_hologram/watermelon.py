@@ -328,10 +328,10 @@ class watermelon:
                         if visualization_RGBD_AP is not None:
                             RGBD, target_amp, target_phs = visualization_RGBD_AP
                             RGBD = RGBD.unsqueeze(0)
-                            POH_phs = self.generator(RGBD)
+                            complex_field = self.generator(RGBD)
                             amp_hat, phs_hat = (
                                 self.generator.part2.propagator.propagate_POH2AP_forward(
-                                    POH_phs
+                                    complex_field
                                 )
                             )
 
@@ -379,10 +379,10 @@ class watermelon:
                     if visualization_RGBD_AP is not None:
                         RGBD, target_amp, target_phs = visualization_RGBD_AP
                         RGBD = RGBD.unsqueeze(0)
-                        POH_phs = self.generator(RGBD)
+                        complex_field = self.generator(RGBD)
                         amp_hat, phs_hat = (
-                            self.generator.part2.propagator.propagate_POH2AP_forward(
-                                POH_phs
+                            self.generator.part2.propagator.propagate_complex2AP_forward(
+                                complex_field
                             )
                         )
 
