@@ -330,7 +330,7 @@ class watermelon:
                             RGBD = RGBD.unsqueeze(0)
                             complex_field = self.generator(RGBD)
                             amp_hat, phs_hat = (
-                                self.generator.part2.propagator.propagate_POH2AP_forward(
+                                self.generator.part2.propagator.propagate_complex2AP_forward(
                                     complex_field
                                 )
                             )
