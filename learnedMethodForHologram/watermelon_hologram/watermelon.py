@@ -649,6 +649,7 @@ class watermelon_without_GAN(watermelon):
         pretrained_model_path_D=None,
         input_shape=(1, 4, 192, 192),
         cuda=True,
+        multi_head=False,
     ):
         super(watermelon_without_GAN, self).__init__(
             filter_radius_coefficient=filter_radius_coefficient,
@@ -658,6 +659,7 @@ class watermelon_without_GAN(watermelon):
             pretrained_model_path_D=None,
             input_shape=input_shape,
             cuda=cuda,
+            multi_head=multi_head,
         )
 
         self.discriminator = fakeDiscriminator(
